@@ -41,7 +41,9 @@
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || "Ошибка сервера");
+      throw new Error(
+        data.error || data.message || "Ошибка сервера"
+      );
     }
 
     return data;
@@ -50,17 +52,19 @@
   function notify(message) {
     const toast = $("#toast");
 
-    if (toast) {
-      toast.textContent = message;
-      toast.classList.add("show");
-
-      clearTimeout(notify.timer);
-      notify.timer = setTimeout(() => {
-        toast.classList.remove("show");
-      }, 2500);
-    } else {
+    if (!toast) {
       console.log(message);
+      return;
     }
+
+    toast.textContent = message;
+    toast.classList.add("show");
+
+    clearTimeout(notify.timer);
+
+    notify.timer = setTimeout(() => {
+      toast.classList.remove("show");
+    }, 2500);
   }
 
   function formatNumber(value) {
@@ -74,7 +78,7 @@
 
     if (!player || typeof player !== "object") return;
 
-    for (const key of [
+    const fields = [
       "coins",
       "totalEarned",
       "earned",
@@ -85,7 +89,9 @@
       "multiplier",
       "streak",
       "name",
-    ]) {
+    ];
+
+    for (const key of fields) {
       if (player[key] !== undefined) {
         state[key] = player[key];
       }
@@ -95,14 +101,14 @@
   }
 
   function updateUI() {
-    const coins = Number(state.coins) || 0;
     const total = Number(state.totalEarned) || 0;
-    const power = Number(state.clickPower ?? state.power) || 1;
 
     const values = {
-      "#balance": formatNumber(coins),
+      "#balance": formatNumber(state.coins),
       "#total-earned": formatNumber(total),
-      "#click-power": formatNumber(power),
+      "#click-power": formatNumber(
+        state.clickPower ?? state.power ?? 1
+      ),
       "#auto-power": formatNumber(state.autoLevel || 0),
       "#level": formatNumber(
         Math.max(1, Math.floor(total / 1000) + 1)
@@ -111,10 +117,14 @@
 
     for (const [selector, value] of Object.entries(values)) {
       const element = $(selector);
-      if (element) element.textContent = value;
+
+      if (element) {
+        element.textContent = value;
+      }
     }
 
     const nameElement = $("#player-name");
+
     if (nameElement) {
       nameElement.textContent = state.name || "Игрок";
     }
@@ -122,37 +132,44 @@
     updateUpgradeButtons();
   }
 
-  function updateUpgradeButtons() {
-    $$("[data-upgrade]").forEach((button) => {
-      const type = button.dataset.upgrade;
-      const cost = getUpgradeCost(type);
-
-      button.disabled = Number(state.coins) < cost;
-    });
-  }
-
   function getUpgradeCost(type) {
     if (type === "click" || type === "power") {
       return Math.floor(
-        50 * Math.pow(1.65, Math.max(0, Number(state.power || 1) - 1))
+        50 * Math.pow(
+          1.65,
+          Math.max(0, Number(state.power || 1) - 1)
+        )
       );
     }
 
     if (type === "auto") {
       return Math.floor(
-        250 * Math.pow(1.8, Number(state.autoLevel || 0))
+        250 * Math.pow(
+          1.8,
+          Number(state.autoLevel || 0)
+        )
       );
     }
 
     if (type === "multiplier") {
       const level = Number(
-        state.multiplierLevel || Math.max(0, Number(state.multiplier || 1) - 1)
+        state.multiplierLevel ||
+        Math.max(0, Number(state.multiplier || 1) - 1)
       );
 
-      return Math.floor(1000 * Math.pow(2.1, level));
+      return Math.floor(
+        1000 * Math.pow(2.1, level)
+      );
     }
 
     return 0;
+  }
+
+  function updateUpgradeButtons() {
+    $$("[data-upgrade]").forEach((button) => {
+      const cost = getUpgradeCost(button.dataset.upgrade);
+      button.disabled = Number(state.coins) < cost;
+    });
   }
 
   async function loadState() {
@@ -160,11 +177,12 @@
       const data = await api("/api/state");
       mergeState(data);
     } catch (error) {
-      console.error("Не удалось загрузить состояние:", error);
+      console.error("Ошибка загрузки:", error);
       notify("Не удалось загрузить данные");
     }
   }
 
+  // Клик по печеньке без всплывающих чисел
   async function clickCoin() {
     const now = Date.now();
 
@@ -191,29 +209,13 @@
 
       mergeState(data);
 
-      const gain = Number(
-        data.gain ?? data.earned ?? state.clickPower ?? state.power ?? 1
-      );
-
-      showFloatingGain(button, gain);
+      // Всплывающие числа отключены.
     } catch (error) {
       console.error("Ошибка клика:", error);
       notify(error.message || "Не удалось начислить монеты");
     } finally {
       busy = false;
     }
-  }
-
-  function showFloatingGain(button, amount) {
-    if (!button) return;
-
-    const gain = document.createElement("span");
-    gain.className = "floating-gain";
-    gain.textContent = `+${formatNumber(amount)}`;
-
-    button.appendChild(gain);
-
-    setTimeout(() => gain.remove(), 1000);
   }
 
   async function buyUpgrade(type) {
@@ -269,14 +271,17 @@
       panel.hidden = panel.id !== `tab-${tabName}`;
     });
 
-    if (tabName === "top") loadLeaderboard();
+    if (tabName === "top") {
+      loadLeaderboard();
+    }
   }
 
   async function loadLeaderboard() {
     const container = $("#leaderboard");
+
     if (!container) return;
 
-    container.innerHTML = "<p>Загрузка рейтинга...</p>";
+    container.textContent = "Загрузка рейтинга...";
 
     try {
       const period =
@@ -346,17 +351,20 @@
   }
 
   function initTheme() {
-    let savedTheme = "crimson";
+    let theme = "crimson";
 
     try {
-      savedTheme = localStorage.getItem("akira-theme") || savedTheme;
+      theme = localStorage.getItem("akira-theme") || theme;
     } catch {}
 
-    setTheme(savedTheme);
+    setTheme(theme);
   }
 
   function initEvents() {
-    $("#cookie-button")?.addEventListener("click", clickCoin);
+    $("#cookie-button")?.addEventListener(
+      "click",
+      clickCoin
+    );
 
     $$("[data-upgrade]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -364,7 +372,10 @@
       });
     });
 
-    $("#daily-button")?.addEventListener("click", claimDaily);
+    $("#daily-button")?.addEventListener(
+      "click",
+      claimDaily
+    );
 
     $$(".nav-button[data-tab]").forEach((button) => {
       button.addEventListener("click", () => {
