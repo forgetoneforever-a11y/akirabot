@@ -135,3 +135,73 @@ footer span{color:var(--accent)}
   .cookie-wrap { width: 76vw; height: 76vw; min-width: 230px; min-height: 230px; }
   .periods .period { font-size: 11px; }
 }
+
+/* AKIRA! performance + large rectangular click zone */
+.cookie-area {
+  height: auto;
+  min-height: 340px;
+  padding: 18px 0 12px;
+  gap: 0;
+  contain: layout paint;
+}
+
+/* The whole rectangle responds to taps, not only the cookie emoji. */
+.cookie-wrap {
+  width: 100%;
+  height: 230px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), .10), rgba(var(--accent-rgb), .025));
+  border: 1px solid rgba(var(--accent-rgb), .12);
+  position: relative;
+  z-index: 2;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cookie-wrap:active {
+  transform: scale(.99);
+  background: rgba(var(--accent-rgb), .14);
+}
+.cookie {
+  font-size: clamp(88px, 25vw, 112px);
+  pointer-events: none;
+}
+.tap-hint, .power {
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+}
+.tap-hint { margin-top: 12px; }
+.power { margin-top: 8px; }
+.orbit { pointer-events: none; z-index: 0; }
+
+/* Lighter effects on phones: reduce GPU work from large blurred fixed layers. */
+.glow {
+  filter: blur(55px);
+  opacity: .16;
+  will-change: auto;
+}
+.cookie, .cookie-wrap, .tab, .buy, .period, .theme-card {
+  -webkit-tap-highlight-color: transparent;
+}
+.app { contain: layout style; }
+.panel { backdrop-filter: blur(10px); }
+
+@media (max-width: 600px) {
+  .glow { display: none; }
+  .panel { backdrop-filter: none; }
+  .cookie-area { min-height: 330px; }
+  .cookie-wrap { height: 220px; }
+}
+@media (max-width: 380px) {
+  .cookie-area { min-height: 310px; }
+  .cookie-wrap { height: 205px; }
+  .cookie { font-size: 88px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow, .orbit, .cookie { animation: none !important; }
+}
