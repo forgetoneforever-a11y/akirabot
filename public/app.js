@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -9,397 +8,397 @@
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-  const THEMES = {
-    "neon-purple": "Neon Purple",
-    midnight: "Midnight",
-    emerald: "Emerald",
-    crimson: "Crimson",
-    light: "Light"
-  };
-
-  const THEME_KEY = "akira-theme";
-  let toastTimer;
-  let state = {
+  const state = {
     coins: 0,
+    totalEarned: 0,
     earned: 0,
+    clickPower: 1,
     power: 1,
     autoLevel: 0,
+    multiplierLevel: 0,
     multiplier: 1,
-    level: 1,
-    streak: 0
+    streak: 0,
+    name: "Игрок",
   };
 
-  let leaderboardPeriod = "week";
-  let leaderboardRequest = 0;
+  let busy = false;
+  let lastClick = 0;
 
-  // ---------- Уведомления ----------
-
-  function toast(message) {
-    const el = $("#toast");
-    if (!el) return;
-
-    el.textContent = message;
-    el.classList.add("show");
-
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove("show"), 2400);
-  }
-
-  // ---------- Темы ----------
-
-  function applyTheme(theme, save = true) {
-    if (!Object.hasOwn(THEMES, theme)) {
-      theme = "neon-purple";
-    }
-
-    document.documentElement.dataset.theme = theme;
-
-    const themeColor = {
-      "neon-purple": "#100b20",
-      midnight: "#070d18",
-      emerald: "#06140f",
-      crimson: "#16080e",
-      light: "#f2f3fa"
-    }[theme];
-
-    document.querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", themeColor);
-
-    $$("[data-theme-choice]").forEach((button) => {
-      const selected = button.dataset.themeChoice === theme;
-      button.classList.toggle("selected", selected);
-      button.setAttribute("aria-pressed", String(selected));
-    });
-
-    const status = $("#themeStatus");
-    if (status) status.textContent = `Выбрана тема: ${THEMES[theme]}`;
-
-    if (save) {
-      try {
-        localStorage.setItem(THEME_KEY, theme);
-      } catch (_) {
-        // Тема останется активной до закрытия страницы.
-      }
-    }
-  }
-
-  function initTheme() {
-    let saved = "neon-purple";
-
-    try {
-      saved = localStorage.getItem(THEME_KEY) || saved;
-    } catch (_) {}
-
-    applyTheme(saved, false);
-
-    $("#themeGrid")?.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-theme-choice]");
-      if (!button) return;
-
-      applyTheme(button.dataset.themeChoice);
-      tg?.HapticFeedback?.selectionChanged();
-    });
-  }
-
-  // ---------- API ----------
-
-  async function api(path, options = {}) {
+  async function api(url, options = {}) {
     const headers = {
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...(tg?.initData
+        ? { "X-Telegram-Init-Data": tg.initData }
+        : {}),
+      ...options.headers,
     };
 
-    // Telegram передаёт данные WebApp серверу для проверки пользователя.
-    if (tg?.initData) {
-      headers["X-Telegram-Init-Data"] = tg.initData;
-    }
-
-    const response = await fetch(path, {
+    const response = await fetch(url, {
       ...options,
       headers,
-      credentials: "same-origin"
     });
 
-    let data = {};
-    try {
-      data = await response.json();
-    } catch (_) {}
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || `Ошибка ${response.status}`);
+      throw new Error(data.error || data.message || "Ошибка сервера");
     }
 
     return data;
   }
 
-  function number(value) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+  function notify(message) {
+    const toast = $("#toast");
+
+    if (toast) {
+      toast.textContent = message;
+      toast.classList.add("show");
+
+      clearTimeout(notify.timer);
+      notify.timer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2500);
+    } else {
+      console.log(message);
+    }
   }
 
-  function format(value) {
-    return Math.floor(number(value)).toLocaleString("ru-RU");
+  function formatNumber(value) {
+    return new Intl.NumberFormat("ru-RU", {
+      maximumFractionDigits: 1,
+    }).format(Number(value) || 0);
   }
 
-  // ---------- Отображение состояния ----------
+  function mergeState(data) {
+    const player = data?.player || data?.state || data;
+
+    if (!player || typeof player !== "object") return;
+
+    for (const key of [
+      "coins",
+      "totalEarned",
+      "earned",
+      "clickPower",
+      "power",
+      "autoLevel",
+      "multiplierLevel",
+      "multiplier",
+      "streak",
+      "name",
+    ]) {
+      if (player[key] !== undefined) {
+        state[key] = player[key];
+      }
+    }
+
+    updateUI();
+  }
 
   function updateUI() {
-    $("#coins") && ($("#coins").textContent = format(state.coins));
-    $("#earned") && ($("#earned").textContent = format(state.earned));
-    $("#profileEarned") &&
-      ($("#profileEarned").textContent = format(state.earned));
-    $("#power") && ($("#power").textContent = format(state.power));
-    $("#autoRate") &&
-      ($("#autoRate").textContent = format(state.autoLevel));
-    $("#level") &&
-      ($("#level").textContent = `LVL ${format(state.level)}`);
-    $("#streak") &&
-      ($("#streak").textContent = format(state.streak));
+    const coins = Number(state.coins) || 0;
+    const total = Number(state.totalEarned) || 0;
+    const power = Number(state.clickPower ?? state.power) || 1;
 
-    $$(".upgrade").forEach((card) => {
-      const type = card.dataset.upgrade;
-      const button = card.querySelector(".buy");
-      const priceEl = card.querySelector(".price");
+    const values = {
+      "#balance": formatNumber(coins),
+      "#total-earned": formatNumber(total),
+      "#click-power": formatNumber(power),
+      "#auto-power": formatNumber(state.autoLevel || 0),
+      "#level": formatNumber(
+        Math.max(1, Math.floor(total / 1000) + 1)
+      ),
+    };
 
-      const levels = state.upgrades || {};
-      const level = number(levels[type]);
+    for (const [selector, value] of Object.entries(values)) {
+      const element = $(selector);
+      if (element) element.textContent = value;
+    }
 
-      const basePrices = {
-        click: 50,
-        auto: 250,
-        multiplier: 1000
-      };
+    const nameElement = $("#player-name");
+    if (nameElement) {
+      nameElement.textContent = state.name || "Игрок";
+    }
 
-      const price = Math.floor(
-        (basePrices[type] || 50) * Math.pow(1.65, level)
+    updateUpgradeButtons();
+  }
+
+  function updateUpgradeButtons() {
+    $$("[data-upgrade]").forEach((button) => {
+      const type = button.dataset.upgrade;
+      const cost = getUpgradeCost(type);
+
+      button.disabled = Number(state.coins) < cost;
+    });
+  }
+
+  function getUpgradeCost(type) {
+    if (type === "click" || type === "power") {
+      return Math.floor(
+        50 * Math.pow(1.65, Math.max(0, Number(state.power || 1) - 1))
+      );
+    }
+
+    if (type === "auto") {
+      return Math.floor(
+        250 * Math.pow(1.8, Number(state.autoLevel || 0))
+      );
+    }
+
+    if (type === "multiplier") {
+      const level = Number(
+        state.multiplierLevel || Math.max(0, Number(state.multiplier || 1) - 1)
       );
 
-      if (priceEl) priceEl.textContent = format(price);
-      if (button) button.disabled = number(state.coins) < price;
-    });
+      return Math.floor(1000 * Math.pow(2.1, level));
+    }
+
+    return 0;
   }
 
   async function loadState() {
     try {
       const data = await api("/api/state");
-
-      // Поддерживает ответ сервера как с объектом state, так и без него.
-      const incoming = data.state || data.player || data;
-      state = { ...state, ...incoming };
-
-      if (data.upgrades) state.upgrades = data.upgrades;
-
-      updateUI();
+      mergeState(data);
     } catch (error) {
       console.error("Не удалось загрузить состояние:", error);
-      toast("Не удалось загрузить игру. Проверь сервер.");
+      notify("Не удалось загрузить данные");
     }
   }
 
-  // ---------- Клики по печеньке ----------
+  async function clickCoin() {
+    const now = Date.now();
 
-  let clickPending = false;
+    if (busy || now - lastClick < 80) return;
 
-  async function clickCookie() {
-    if (clickPending) return;
-    clickPending = true;
+    lastClick = now;
+    busy = true;
 
-    const cookie = $("#cookie");
-    if (cookie) {
-      cookie.classList.remove("pop");
-      void cookie.offsetWidth;
-      cookie.classList.add("pop");
+    const button = $("#cookie-button");
+
+    if (button) {
+      button.classList.remove("pop");
+      void button.offsetWidth;
+      button.classList.add("pop");
     }
-
-    tg?.HapticFeedback?.impactOccurred("light");
 
     try {
+      tg?.HapticFeedback?.impactOccurred("light");
+
       const data = await api("/api/click", {
         method: "POST",
-        body: JSON.stringify({})
+        body: JSON.stringify({}),
       });
 
-      const incoming = data.state || data.player || data;
-      state = { ...state, ...incoming };
-      updateUI();
+      mergeState(data);
 
-      if (data.error) toast(data.error);
+      const gain = Number(
+        data.gain ?? data.earned ?? state.clickPower ?? state.power ?? 1
+      );
+
+      showFloatingGain(button, gain);
     } catch (error) {
       console.error("Ошибка клика:", error);
-      toast("Не удалось сохранить клик");
+      notify(error.message || "Не удалось начислить монеты");
     } finally {
-      clickPending = false;
+      busy = false;
     }
   }
 
-  $("#cookieButton")?.addEventListener("click", clickCookie);
+  function showFloatingGain(button, amount) {
+    if (!button) return;
 
-  $("#cookieButton")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      clickCookie();
-    }
-  });
+    const gain = document.createElement("span");
+    gain.className = "floating-gain";
+    gain.textContent = `+${formatNumber(amount)}`;
 
-  // ---------- Вкладки ----------
+    button.appendChild(gain);
 
-  function openTab(name) {
-    if (!$("#" + name)) return;
-
-    $$(".tab").forEach((button) => {
-      button.classList.toggle("active", button.dataset.tab === name);
-    });
-
-    ["shop", "top", "profile", "settings"].forEach((id) => {
-      $("#" + id)?.classList.toggle("hidden", id !== name);
-    });
-
-    if (name === "top") loadLeaderboard(leaderboardPeriod);
-    if (name === "profile") loadState();
-
-    tg?.HapticFeedback?.selectionChanged();
+    setTimeout(() => gain.remove(), 1000);
   }
 
-  $$(".tab").forEach((button) => {
-    button.addEventListener("click", () => openTab(button.dataset.tab));
-  });
+  async function buyUpgrade(type) {
+    try {
+      const data = await api("/api/buy", {
+        method: "POST",
+        body: JSON.stringify({ type }),
+      });
 
-  // ---------- Магазин ----------
+      mergeState(data);
 
-  $$(".upgrade").forEach((card) => {
-    card.querySelector(".buy")?.addEventListener("click", async () => {
-      const type = card.dataset.upgrade;
-      const button = card.querySelector(".buy");
+      tg?.HapticFeedback?.notificationOccurred("success");
+      notify("Улучшение куплено!");
+    } catch (error) {
+      tg?.HapticFeedback?.notificationOccurred("error");
+      notify(error.message || "Не удалось купить улучшение");
+    }
+  }
 
-      if (button.disabled) return;
-      button.disabled = true;
+  async function claimDaily() {
+    const button = $("#daily-button");
 
-      try {
-        const data = await api("/api/buy", {
-          method: "POST",
-          body: JSON.stringify({ upgrade: type, type })
-        });
+    if (button?.disabled) return;
 
-        if (data.state || data.player) {
-          state = { ...state, ...(data.state || data.player) };
-        } else {
-          await loadState();
-        }
+    if (button) button.disabled = true;
 
-        updateUI();
-        toast(data.message || "Улучшение куплено!");
-        tg?.HapticFeedback?.notificationOccurred("success");
-      } catch (error) {
-        toast(error.message || "Не удалось купить улучшение");
-        await loadState();
-      } finally {
-        button.disabled = false;
-      }
+    try {
+      const data = await api("/api/daily", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      mergeState(data);
+
+      tg?.HapticFeedback?.notificationOccurred("success");
+      notify(data.message || "Ежедневная награда получена!");
+    } catch (error) {
+      notify(error.message || "Награда пока недоступна");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  function switchTab(tabName) {
+    $$(".nav-button[data-tab]").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.tab === tabName
+      );
     });
-  });
 
-  // ---------- Рейтинг ----------
+    $$(".tab-content").forEach((panel) => {
+      panel.hidden = panel.id !== `tab-${tabName}`;
+    });
 
-  async function loadLeaderboard(period) {
+    if (tabName === "top") loadLeaderboard();
+  }
+
+  async function loadLeaderboard() {
     const container = $("#leaderboard");
     if (!container) return;
 
-    const requestId = ++leaderboardRequest;
-    container.innerHTML = '<div class="empty">Загружаем рейтинг…</div>';
+    container.innerHTML = "<p>Загрузка рейтинга...</p>";
 
     try {
+      const period =
+        $('[data-period].active')?.dataset.period || "all";
+
       const data = await api(
         `/api/leaderboard?period=${encodeURIComponent(period)}`
       );
 
-      if (requestId !== leaderboardRequest) return;
-
-      const entries = Array.isArray(data)
+      const players = Array.isArray(data)
         ? data
-        : data.leaderboard || data.players || data.rows || [];
+        : data.players || data.leaderboard || [];
 
       container.replaceChildren();
 
-      if (!entries.length) {
-        container.innerHTML =
-          '<div class="empty">Пока нет участников рейтинга</div>';
+      if (!players.length) {
+        container.textContent = "Пока нет игроков в рейтинге.";
         return;
       }
 
-      entries.forEach((entry, index) => {
+      players.forEach((player, index) => {
         const row = document.createElement("div");
-        row.className = "leader-row";
+        row.className = "leaderboard-item";
 
-        const rank = document.createElement("div");
-        rank.className = "leader-rank";
-        rank.textContent = String(entry.rank || index + 1);
+        const rank = document.createElement("span");
+        rank.textContent = `#${player.rank ?? index + 1}`;
 
-        const name = document.createElement("div");
-        name.className = "leader-name";
-        name.textContent =
-          entry.username || entry.nickname || entry.name || "Игрок";
+        const name = document.createElement("span");
+        name.textContent = player.name || "Игрок";
 
-        const score = document.createElement("div");
-        score.className = "leader-score";
-        score.textContent = `◉ ${format(
-          entry.earned ?? entry.coins ?? entry.score ?? entry.total ?? 0
-        )}`;
+        const score = document.createElement("span");
+        score.textContent = formatNumber(
+          player.score ?? player.coins ?? 0
+        );
 
         row.append(rank, name, score);
         container.appendChild(row);
       });
     } catch (error) {
-      if (requestId !== leaderboardRequest) return;
       console.error("Ошибка рейтинга:", error);
-      container.innerHTML =
-        '<div class="empty">Не удалось загрузить рейтинг</div>';
+      container.textContent = "Не удалось загрузить рейтинг.";
     }
   }
 
-  $$(".period").forEach((button) => {
-    button.addEventListener("click", () => {
-      leaderboardPeriod = button.dataset.period;
+  function setTheme(theme) {
+    const allowedThemes = [
+      "crimson",
+      "midnight",
+      "ocean",
+      "emerald",
+    ];
 
-      $$(".period").forEach((item) => {
-        item.classList.toggle("active", item === button);
-      });
+    if (!allowedThemes.includes(theme)) return;
 
-      loadLeaderboard(leaderboardPeriod);
-    });
-  });
-
-  // ---------- Ежедневная награда ----------
-
-  $("#daily")?.addEventListener("click", async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
+    document.documentElement.dataset.theme = theme;
 
     try {
-      const data = await api("/api/daily", {
-        method: "POST",
-        body: JSON.stringify({})
+      localStorage.setItem("akira-theme", theme);
+    } catch {}
+
+    $$(".theme-option[data-theme]").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.theme === theme
+      );
+    });
+  }
+
+  function initTheme() {
+    let savedTheme = "crimson";
+
+    try {
+      savedTheme = localStorage.getItem("akira-theme") || savedTheme;
+    } catch {}
+
+    setTheme(savedTheme);
+  }
+
+  function initEvents() {
+    $("#cookie-button")?.addEventListener("click", clickCoin);
+
+    $$("[data-upgrade]").forEach((button) => {
+      button.addEventListener("click", () => {
+        buyUpgrade(button.dataset.upgrade);
       });
+    });
 
-      if (data.state || data.player) {
-        state = { ...state, ...(data.state || data.player) };
-      } else {
-        await loadState();
-      }
+    $("#daily-button")?.addEventListener("click", claimDaily);
 
-      updateUI();
-      toast(data.message || "Ежедневная награда получена!");
-      tg?.HapticFeedback?.notificationOccurred("success");
-    } catch (error) {
-      toast(error.message || "Награду пока нельзя получить");
-    } finally {
-      button.disabled = false;
-    }
-  });
+    $$(".nav-button[data-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        switchTab(button.dataset.tab);
+      });
+    });
 
-  // ---------- Запуск ----------
+    $$(".theme-option[data-theme]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setTheme(button.dataset.theme);
+      });
+    });
 
-  initTheme();
-  updateUI();
-  loadState();
+    $$("[data-period]").forEach((button) => {
+      button.addEventListener("click", () => {
+        $$("[data-period]").forEach((item) => {
+          item.classList.toggle("active", item === button);
+        });
 
+        loadLeaderboard();
+      });
+    });
+  }
+
+  async function init() {
+    initEvents();
+    initTheme();
+    updateUI();
+    await loadState();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
