@@ -1,14 +1,18 @@
 {
-  "name": "akira-cookie-clicker",
-  "version": "1.0.0",
-  "description": "AKIRA Telegram Mini App cookie clicker",
+  "name": "akira-clicker",
+  "version": "1.1.0",
+  "description": "AKIRA Telegram clicker game",
   "main": "server.js",
-  "scripts": {"start":"node server.js"},
-  "engines": {"node": ">=20"},
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "dotenv":"^16.4.7",
-    "express":"^4.21.2",
-    "node-telegram-bot-api":"^0.66.0",
-    "pg":"^8.13.1"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
   }
 }
