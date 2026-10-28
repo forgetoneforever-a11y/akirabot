@@ -205,3 +205,24 @@ footer span{color:var(--accent)}
 @media (prefers-reduced-motion: reduce) {
   .glow, .orbit, .cookie { animation: none !important; }
 }
+
+
+/* AKIRA! mobile polish + true rectangular click zone */
+.app{width:min(100%,470px);padding:14px 14px 28px}
+.cookie-area{height:auto;min-height:0;padding:14px 0 20px;gap:0}
+.cookie-area .orbit{display:none}
+.cookie-wrap{position:relative;width:100%;height:clamp(230px,42vh,310px);min-height:230px;border:1px solid var(--line);border-radius:25px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 42%,rgba(var(--accent-rgb),.18),rgba(var(--accent-rgb),.06) 48%,rgba(var(--panel-tint),.8) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 12px 28px rgba(0,0,0,.12);touch-action:manipulation;user-select:none}
+.cookie-wrap:before,.cookie-wrap:after{content:"";position:absolute;inset:12%;border:1px solid rgba(var(--accent-rgb),.16);border-radius:50%;pointer-events:none;z-index:-1}
+.cookie-wrap:after{inset:23%;border-style:dashed;opacity:.8}
+.cookie{font-size:clamp(86px,23vw,116px);position:relative;z-index:1;pointer-events:none}
+.tap-hint{margin-top:13px;text-align:center;line-height:1.5}
+.power{font-size:13px;text-align:center;margin-top:7px}
+.tabs{position:sticky;top:4px;z-index:3;backdrop-filter:blur(12px);box-shadow:0 8px 20px rgba(0,0,0,.08)}
+.tab{min-width:0;white-space:nowrap;padding:12px 2px;font-size:clamp(10px,2.8vw,12px);touch-action:manipulation}
+.periods{padding:4px;background:rgba(var(--panel-tint),.65);border:1px solid var(--line);border-radius:14px}
+.period{min-height:48px;cursor:pointer;touch-action:manipulation}
+.period.active{box-shadow:inset 0 0 0 1px var(--accent)}
+.theme-card{cursor:pointer;touch-action:manipulation}
+.panel{margin-bottom:4px}
+@media(max-width:380px){.app{padding-left:10px;padding-right:10px}.cookie-wrap{height:230px;min-height:230px}.tabs{gap:2px;padding:4px}.tab{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.glow{animation:none}.orbit{animation:none}}
