@@ -112,6 +112,7 @@ function publicPlayer(player) {
     auto_power: Number(player.auto_level || 0),
     prestige_level: Number(player.prestige_level || 0),
     prestige_crystals: Number(player.prestige_crystals || 0),
+    shards: Number(player.shards || 0),
     prestige_multiplier: 1 + Number(player.prestige_level || 0) * 0.1,
     multiplier_level: Number(player.multiplier_level || 0),
     rank_title: rankForEarned(Number(player.total_earned || 0)).title,
@@ -229,7 +230,8 @@ app.get("/api/collection", async (req,res,next)=>{
  try {
   const result=await pool.query("SELECT skin_id, equipped, obtained_at FROM player_skins WHERE telegram_id=$1 ORDER BY obtained_at",[req.player.telegram_id]);
   const owned=result.rows.map(row=>({...row,skin:SKINS.find(s=>s.id===row.skin_id)})).filter(row=>row.skin);
-  res.json({ok:true,skins:SKINS,owned,cases:Object.values(CASES),equipped:owned.find(s=>s.equipped)?.skin_id||"classic"});
+  const n=owned.length, setBonus=n>=6?1.2:n>=4?1.1:n>=2?1.05:1;
+  res.json({ok:true,skins:SKINS,owned,cases:Object.values(CASES),equipped:owned.find(s=>s.equipped)?.skin_id||"classic",shards:Number(req.player.shards||0),set_bonus:setBonus});
  } catch(error){console.error("Ошибка загрузки коллекции:",error);next(error);}
 });
 app.post("/api/cases/open", async (req,res,next)=>{
@@ -244,12 +246,13 @@ app.post("/api/cases/open", async (req,res,next)=>{
   if(Number(player.balance||0)<cfg.price){await client.query("ROLLBACK");return res.status(400).json({error:"Не хватает печенек для открытия кейса"});}
   const skin=rollSkin(caseId);
   const already=await client.query("SELECT 1 FROM player_skins WHERE telegram_id=$1 AND skin_id=$2",[req.player.telegram_id,skin.id]);
-  await client.query("UPDATE players SET balance=balance-$1 WHERE telegram_id=$2",[cfg.price,req.player.telegram_id]);
+  const shardReward=already.rowCount?({common:2,rare:5,epic:12,legendary:30}[skin.rarity]||2):0;
+  await client.query("UPDATE players SET balance=balance-$1, shards=shards+$2 WHERE telegram_id=$3",[cfg.price,shardReward,req.player.telegram_id]);
   await client.query("INSERT INTO player_case_history (telegram_id,case_id,skin_id,rarity) VALUES ($1,$2,$3,$4)",[req.player.telegram_id,caseId,skin.id,skin.rarity]);
   await client.query("INSERT INTO player_skins (telegram_id,skin_id,equipped) VALUES ($1,$2,FALSE) ON CONFLICT (telegram_id,skin_id) DO NOTHING",[req.player.telegram_id,skin.id]);
   const updated=await client.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);
   await client.query("COMMIT");
-  res.json({ok:true,skin,duplicate:Boolean(already.rowCount),message:already.rowCount?"Повторный скин! Он добавлен в историю кейсов.":"Новый скин добавлен в коллекцию!",player:publicPlayer(updated.rows[0])});
+  res.json({ok:true,skin,duplicate:Boolean(already.rowCount),shards_awarded:shardReward,message:already.rowCount?("Дубликат! +"+shardReward+" осколков"):"Новый скин добавлен в коллекцию!",player:publicPlayer(updated.rows[0])});
  }catch(error){await client.query("ROLLBACK");console.error("Ошибка открытия кейса:",error);next(error);}finally{client.release();}
 });
 app.post("/api/skins/equip", async (req,res,next)=>{
@@ -266,6 +269,10 @@ app.post("/api/skins/equip", async (req,res,next)=>{
  }catch(error){await client.query("ROLLBACK");next(error);}finally{client.release();}
 });
 
+app.get("/api/friends/search",async(req,res,next)=>{try{const username=String(req.query.username||"").trim().replace(/^@/,"").slice(0,32);if(username.length<3)return res.status(400).json({error:"Введи username от 3 символов"});const r=await pool.query("SELECT telegram_id,username,name,avatar_url FROM players WHERE LOWER(username)=LOWER($1) AND telegram_id<>$2 LIMIT 1",[username,req.player.telegram_id]);res.json({ok:true,player:r.rows[0]||null});}catch(e){next(e);}});
+app.post("/api/friends/add",async(req,res,next)=>{const id=String(req.body?.telegram_id||"");if(!id||id===String(req.player.telegram_id))return res.status(400).json({error:"Нельзя добавить этого игрока"});try{const e=await pool.query("SELECT 1 FROM players WHERE telegram_id=$1",[id]);if(!e.rowCount)return res.status(404).json({error:"Игрок не найден"});await pool.query("INSERT INTO player_friends(telegram_id,friend_telegram_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.player.telegram_id,id]);await pool.query("INSERT INTO player_friends(telegram_id,friend_telegram_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[id,req.player.telegram_id]);res.json({ok:true});}catch(e){next(e);}});
+app.get("/api/friends",async(req,res,next)=>{try{const r=await pool.query("SELECT p.telegram_id,p.username,p.name,p.balance FROM player_friends f JOIN players p ON p.telegram_id=f.friend_telegram_id WHERE f.telegram_id=$1 ORDER BY LOWER(p.username)",[req.player.telegram_id]);res.json({ok:true,friends:r.rows});}catch(e){next(e);}});
+app.post("/api/friends/gift",async(req,res,next)=>{const id=String(req.body?.telegram_id||""),amount=Math.floor(Number(req.body?.amount||0)),key=String(req.body?.request_id||"");if(!id||id===String(req.player.telegram_id))return res.status(400).json({error:"Выбери друга"});if(!Number.isSafeInteger(amount)||amount<100||amount>100000)return res.status(400).json({error:"Подарок от 100 до 100 000 печенек"});if(!/^[a-zA-Z0-9-]{16,64}$/.test(key))return res.status(400).json({error:"Некорректный ключ подарка"});const cl=await pool.connect();try{await cl.query("BEGIN");const dupe=await cl.query("SELECT id FROM player_gifts WHERE sender_id=$1 AND request_id=$2",[req.player.telegram_id,key]);if(dupe.rowCount){await cl.query("ROLLBACK");return res.status(409).json({error:"Этот подарок уже отправлен"});}const f=await cl.query("SELECT 1 FROM player_friends WHERE telegram_id=$1 AND friend_telegram_id=$2",[req.player.telegram_id,id]);if(!f.rowCount){await cl.query("ROLLBACK");return res.status(403).json({error:"Сначала добавь игрока в друзья"});}const p=await cl.query("SELECT balance FROM players WHERE telegram_id=$1 FOR UPDATE",[req.player.telegram_id]);if(Number(p.rows[0]?.balance||0)<amount){await cl.query("ROLLBACK");return res.status(400).json({error:"Не хватает печенек"});}await cl.query("UPDATE players SET balance=balance-$1 WHERE telegram_id=$2",[amount,req.player.telegram_id]);await cl.query("UPDATE players SET balance=balance+$1,total_earned=total_earned+$1 WHERE telegram_id=$2",[amount,id]);await cl.query("INSERT INTO player_gifts(sender_id,recipient_id,amount,request_id) VALUES($1,$2,$3,$4)",[req.player.telegram_id,id,amount,key]);await cl.query("COMMIT");const updated=await pool.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);res.json({ok:true,amount,player:publicPlayer(updated.rows[0])});}catch(e){await cl.query("ROLLBACK");next(e);}finally{cl.release();}});
 app.get("/api/state", async (req, res, next) => {
   try {
     // Accrue automatic-cookie income on the server, never trust client-side totals.
@@ -297,7 +304,9 @@ app.post("/api/click", async (req, res, next) => {
 
     const player = result.rows[0];
     const rankBoost = rankForEarned(Number(player.total_earned || 0)).multiplier;
-    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost * (1 + Number(player.prestige_level || 0) * 0.1));
+    const skinCount=Number((await client.query("SELECT COUNT(*)::int AS n FROM player_skins WHERE telegram_id=$1",[player.telegram_id])).rows[0]?.n||0);
+    const setBonus=skinCount>=6?1.2:skinCount>=4?1.1:skinCount>=2?1.05:1;
+    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost * (1 + Number(player.prestige_level || 0) * 0.1) * setBonus);
 
     const updated = await client.query(
       `UPDATE players
@@ -308,7 +317,7 @@ app.post("/api/click", async (req, res, next) => {
 
     const rankResult = await grantRankRewards(client, updated.rows[0]);
     await client.query("COMMIT");
-    res.json({ ok: true, reward, rank_bonus: rankResult.bonus, player: publicPlayer(rankResult.player) });
+    res.json({ ok: true, reward, rank_bonus: rankResult.bonus, set_bonus: setBonus, player: publicPlayer(rankResult.player) });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -662,6 +671,7 @@ async function start() {
       ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS prestige_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS prestige_crystals BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS shards BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS last_daily DATE,
       ADD COLUMN IF NOT EXISTS last_daily_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS last_auto_at TIMESTAMPTZ,
@@ -687,6 +697,8 @@ async function start() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`CREATE TABLE IF NOT EXISTS player_friends(telegram_id TEXT NOT NULL,friend_telegram_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(telegram_id,friend_telegram_id),CHECK(telegram_id<>friend_telegram_id))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS player_gifts(id BIGSERIAL PRIMARY KEY,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,amount BIGINT NOT NULL CHECK(amount>0),request_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(sender_id,request_id))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_skins (
       telegram_id TEXT NOT NULL,
