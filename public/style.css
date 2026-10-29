@@ -1665,3 +1665,80 @@ body { background:radial-gradient(ellipse at 12% 0%,rgba(115,75,180,.19),transpa
 button,.nav-button,.buy-button { transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease; }
 button:active,.nav-button:active,.buy-button:active { transform:scale(.97); }
 .balance-card { border-radius:24px; }
+
+
+/* AKIRA • deeper glassmorphism system */
+:root {
+  --glass-bg: rgba(18, 22, 39, .62);
+  --glass-bg-strong: rgba(25, 29, 51, .78);
+  --glass-line: rgba(224, 226, 255, .16);
+  --glass-shine: rgba(255, 255, 255, .075);
+  --glass-purple: rgba(164, 117, 255, .24);
+  --glass-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+}
+body {
+  background:
+    radial-gradient(ellipse at 8% 8%, rgba(143, 86, 255, .17), transparent 36%),
+    radial-gradient(ellipse at 92% 22%, rgba(56, 193, 220, .10), transparent 34%),
+    radial-gradient(ellipse at 55% 100%, rgba(236, 64, 148, .08), transparent 40%),
+    #090b14;
+  background-attachment: fixed;
+}
+header, .app-header, .brand, .balance-card, .cookie-stage, .cookie-container,
+.upgrade-panel, .leaderboard, .profile-card, .theme-panel, .games-panel,
+.game-card, .game-board, .chess-container, .chess-panel, .game-history,
+.game-controls, .daily-reward-card, .section-card, .panel, .card,
+.modal-content, .settings-panel, .shop-panel, .top-card {
+  background-color: var(--glass-bg);
+  background-image: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.012) 48%, rgba(164,117,255,.035));
+  border: 1px solid var(--glass-line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.075), var(--glass-shadow);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+.balance-card, .cookie-stage, .upgrade-panel, .leaderboard, .profile-card,
+.theme-panel, .games-panel, .game-card, .daily-reward-card, .section-card, .panel, .card {
+  border-radius: 22px;
+}
+.navbar, .bottom-nav, .navigation, .nav-bar, .nav-tabs, .tab-navigation {
+  background: rgba(12, 16, 29, .76);
+  border: 1px solid rgba(220, 225, 255, .17);
+  border-radius: 20px;
+  box-shadow: 0 12px 35px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+button, .nav-button, .buy-button, .game-button, .tab-button {
+  border: 1px solid rgba(221, 211, 255, .20);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+}
+button:hover, .nav-button:hover, .buy-button:hover, .game-button:hover, .tab-button:hover {
+  border-color: rgba(187, 145, 255, .62);
+  box-shadow: 0 0 22px rgba(157, 104, 255, .15), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.nav-button.active, .tab-button.active, button.active {
+  background: linear-gradient(135deg, rgba(169, 117, 255, .25), rgba(85, 118, 220, .13));
+  border-color: rgba(190, 151, 255, .7);
+  box-shadow: 0 0 20px rgba(157,104,255,.16), inset 0 1px 0 rgba(255,255,255,.12);
+}
+input, textarea, select, .input, .form-control {
+  background: rgba(7, 10, 20, .48);
+  border: 1px solid rgba(220, 225, 255, .16);
+  border-radius: 12px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.12);
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(174, 130, 255, .72);
+  box-shadow: 0 0 0 3px rgba(157,104,255,.13);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .balance-card, .upgrade-panel, .leaderboard, .profile-card, .theme-panel, .games-panel {
+    animation: glass-enter .45s ease both;
+  }
+  @keyframes glass-enter {
+    from { opacity: .82; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
