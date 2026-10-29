@@ -89,6 +89,7 @@
 
   function getGameMenu() {
     return $("#games-menu") ||
+      $("#game-menu-panel") ||
       $(".games-menu") ||
       $('[data-games-menu]');
   }
@@ -101,7 +102,13 @@
   function showPanel(gameId) {
     const menu = getGameMenu();
 
-    if (menu) menu.hidden = true;
+    if (menu) {
+      menu.hidden = true;
+      menu.style.display = "none";
+    }
+
+    const gamesScreen = $("#tab-games");
+    if (gamesScreen) gamesScreen.dataset.playing = "true";
 
     for (const id of Object.keys(GAME_CONFIG)) {
       const panel = getGamePanel(id);
@@ -149,6 +156,9 @@
       menu.hidden = false;
       menu.style.display = "";
     }
+
+    const gamesScreen = $("#tab-games");
+    if (gamesScreen) delete gamesScreen.dataset.playing;
 
     const gamesSection = getGamesSection();
 
@@ -462,6 +472,16 @@
      * появившиеся позднее, также работали.
      */
     document.addEventListener("click", (event) => {
+      const exitButton = event.target.closest("#games-exit-button");
+      if (exitButton) {
+        event.preventDefault();
+        showMenu();
+        if (typeof window.switchTab === "function") {
+          window.switchTab("shop");
+        }
+        return;
+      }
+
       const gameButton = event.target.closest("[data-open-game]");
 
       if (gameButton) {
