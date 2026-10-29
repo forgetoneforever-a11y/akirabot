@@ -933,6 +933,7 @@ function init() {
 
   initThemes();
   initEventHandlers();
+  loadFriends();
   loadCollection();
   initSwipeNavigation();
 
