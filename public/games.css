@@ -951,3 +951,107 @@
     transition: none !important;
   }
 }
+
+
+/* ================================
+   AKIRA ARCADE — полноэкранная вкладка
+================================ */
+#tab-games.games-screen[hidden] { display: none !important; }
+body.games-fullscreen { overflow: hidden; }
+body.games-fullscreen .header,
+body.games-fullscreen .balance-card,
+body.games-fullscreen #click-area,
+body.games-fullscreen .click-hint,
+body.games-fullscreen .click-stats,
+body.games-fullscreen .navbar { display: none !important; }
+body.games-fullscreen #app { width: 100%; max-width: none; min-height: 100dvh; padding: 0; margin: 0; }
+body.games-fullscreen main { width: 100%; max-width: none; margin: 0; padding: 0; }
+#tab-games.games-screen {
+  position: fixed; inset: 0; z-index: 50; display: block;
+  overflow-y: auto; overscroll-behavior: contain;
+  box-sizing: border-box; padding: max(18px, env(safe-area-inset-top)) clamp(16px, 4vw, 58px) max(28px, env(safe-area-inset-bottom));
+  color: #f7f8fc;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(255, 47, 91, .17), transparent 38%),
+    radial-gradient(ellipse at 95% 12%, rgba(107, 76, 255, .17), transparent 36%),
+    linear-gradient(145deg, #0b0d14 0%, #11111d 48%, #090a10 100%);
+}
+.games-screen::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16;
+  background-image: radial-gradient(rgba(255,255,255,.35) .65px, transparent .65px);
+  background-size: 20px 20px;
+}
+.games-screen > * { position: relative; z-index: 1; }
+.games-screen-topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; max-width:1180px; margin:0 auto; }
+.games-exit-button { display:inline-flex; align-items:center; gap:9px; min-height:40px; padding:9px 14px; color:#c9cad6; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.12); border-radius:12px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:background .18s,transform .18s; }
+.games-exit-button:hover { background:rgba(255,255,255,.1); transform:translateY(-1px); }
+.games-exit-button span { font-size:20px; line-height:1; }
+.games-brand { display:flex; align-items:center; gap:9px; color:#fff; font-size:14px; font-weight:900; letter-spacing:1.5px; }
+.games-brand > span:last-child { color:#77788d; font-size:10px; letter-spacing:2px; }
+.games-brand-mark { display:grid; place-items:center; width:29px; height:29px; border-radius:9px; color:#fff; background:linear-gradient(135deg,#ff315b,#a72cff); font-size:16px; }
+.games-hero { max-width:1180px; margin:clamp(32px,7vh,76px) auto 30px; }
+.games-eyebrow,.games-setup-kicker { display:flex; align-items:center; gap:8px; color:#ff7c9b; font-size:10px; font-weight:900; letter-spacing:2px; }
+.games-live-dot { width:7px; height:7px; border-radius:50%; background:#ff456e; box-shadow:0 0 14px rgba(255,69,110,.8); }
+.games-hero h1 { margin:13px 0 10px; color:#f8f8fc; font-size:clamp(34px,6vw,62px); line-height:1.03; font-weight:950; letter-spacing:-2px; }
+.games-hero h1 span { color:transparent; background:linear-gradient(95deg,#ff5277,#b58aff); background-clip:text; -webkit-background-clip:text; }
+.games-hero p { max-width:560px; margin:0; color:#999bad; font-size:14px; line-height:1.7; }
+#tab-games .games-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; max-width:1180px; margin:0 auto 22px; }
+#tab-games .game-card { position:relative; display:flex; flex-direction:row; align-items:center; gap:clamp(12px,3vw,32px); min-width:0; min-height:230px; padding:clamp(18px,3vw,34px); overflow:hidden; text-align:left; color:#fff; border:1px solid rgba(255,255,255,.11); border-radius:24px; cursor:pointer; isolation:isolate; transition:transform .2s,border-color .2s,box-shadow .2s; }
+#tab-games .game-card::before { content:""; position:absolute; inset:0; z-index:-1; opacity:.9; }
+#tab-games .game-card-durak::before { background:radial-gradient(ellipse at 75% 40%,rgba(255,51,93,.27),transparent 55%),linear-gradient(130deg,#29121f,#17121e 62%,#10121c); }
+#tab-games .game-card-chess::before { background:radial-gradient(ellipse at 75% 40%,rgba(126,92,255,.27),transparent 55%),linear-gradient(130deg,#17182d,#171522 62%,#10121c); }
+#tab-games .game-card:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.27); box-shadow:0 18px 50px rgba(0,0,0,.24); }
+#tab-games .game-card.selected { border-color:rgba(255,89,125,.8); box-shadow:0 0 0 1px rgba(255,89,125,.15),0 18px 50px rgba(0,0,0,.2); }
+#tab-games .game-card-art { display:flex; align-items:center; justify-content:center; flex:0 0 120px; height:142px; position:relative; }
+#tab-games .game-card-art span { position:absolute; display:grid; place-items:center; width:65px; height:92px; border:1px solid rgba(255,255,255,.65); border-radius:10px; background:linear-gradient(145deg,#fff,#e8e8ef); color:#d92b54; font-size:44px; box-shadow:0 12px 25px rgba(0,0,0,.35); }
+#tab-games .game-card-art span:nth-child(1) { transform:translate(-28px,8px) rotate(-15deg); }
+#tab-games .game-card-art span:nth-child(2) { transform:translate(12px,-8px) rotate(10deg); color:#222; }
+#tab-games .game-card-art span:nth-child(3) { transform:translate(31px,15px) rotate(19deg); background:linear-gradient(145deg,#ff6685,#ad234d); color:#fff; }
+#tab-games .game-card-art.chess-art span { width:65px; height:85px; border:0; background:transparent; color:#c9bfff; font-size:70px; box-shadow:none; text-shadow:0 10px 25px rgba(145,111,255,.35); }
+#tab-games .game-card-art.chess-art span:nth-child(1) { transform:translate(-35px,4px) rotate(-13deg); }
+#tab-games .game-card-art.chess-art span:nth-child(2) { transform:translate(0,-15px); color:#fff; }
+#tab-games .game-card-art.chess-art span:nth-child(3) { transform:translate(35px,8px) rotate(12deg); }
+#tab-games .game-card-content { min-width:0; }
+#tab-games .game-card-kicker { margin-bottom:9px; color:#ff9ab0; font-size:9px; font-weight:900; letter-spacing:1.6px; }
+#tab-games .game-card-chess .game-card-kicker { color:#b9aaff; }
+#tab-games .game-card-title { color:#fff; font-size:clamp(24px,3vw,35px); line-height:1.1; font-weight:950; letter-spacing:-1px; }
+#tab-games .game-card-description { margin-top:9px; color:#b0afc0; font-size:12px; line-height:1.5; }
+#tab-games .game-card-action { display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:180px; margin-top:22px; color:#fff; font-size:12px; font-weight:800; }
+#tab-games .game-card-action b { font-size:18px; color:#ff7897; }
+#tab-games .game-card-chess .game-card-action b { color:#b8a5ff; }
+#tab-games .game-card-number { position:absolute; top:15px; right:19px; color:rgba(255,255,255,.24); font-size:12px; font-weight:900; letter-spacing:2px; }
+#tab-games .games-setup-panel { max-width:1180px; margin:0 auto; padding:22px clamp(18px,3vw,32px); background:rgba(20,20,32,.78); border:1px solid rgba(255,255,255,.1); border-radius:20px; box-shadow:0 18px 50px rgba(0,0,0,.16); }
+#tab-games .games-setup-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+#tab-games .games-setup-heading .section-title { margin:7px 0 4px; color:#fff; font-size:22px; }
+#tab-games .games-setup-heading .section-description { margin:0; color:#9293a6; }
+#tab-games .games-setup-symbol { display:grid; place-items:center; flex:0 0 45px; width:45px; height:45px; border-radius:14px; background:rgba(255,74,117,.1); color:#ff7897; font-size:24px; }
+#tab-games .game-mode-buttons { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:18px; }
+#tab-games .game-mode-buttons button { min-height:48px; border-radius:13px; font-weight:800; }
+#tab-games #game-settings { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:12px; }
+#tab-games #game-settings label { color:#a5a6b7; font-size:11px; font-weight:800; }
+#tab-games #game-settings select { min-width:0; width:100%; }
+#tab-games #start-game-button { grid-column:1/-1; min-height:50px; margin-top:4px; border-radius:14px; font-weight:900; }
+#tab-games .game-panel:not(#game-menu-panel) { max-width:1180px; margin:0 auto; background:rgba(18,19,30,.94); border:1px solid rgba(255,255,255,.12); border-radius:22px; }
+#tab-games .game-topline { display:flex; align-items:center; gap:16px; }
+#tab-games .game-status { color:#b7b8c8; }
+body.games-fullscreen #akira-game-toast { z-index:100; }
+@media (max-width:760px) {
+  #tab-games.games-screen { padding-left:15px; padding-right:15px; }
+  .games-hero { margin-top:34px; }
+  #tab-games .games-grid { grid-template-columns:1fr; gap:12px; }
+  #tab-games .game-card { min-height:190px; padding:18px; gap:8px; border-radius:20px; }
+  #tab-games .game-card-art { flex-basis:95px; height:115px; transform:scale(.82); transform-origin:center; margin-left:-8px; margin-right:-4px; }
+  #tab-games .game-card-title { font-size:27px; }
+  #tab-games .game-card-action { margin-top:14px; }
+  #tab-games #game-settings { grid-template-columns:1fr; gap:8px; }
+  #tab-games .game-mode-buttons { grid-template-columns:1fr 1fr; }
+  .games-brand > span:last-child { display:none; }
+}
+@media (max-width:390px) {
+  #tab-games .game-card { gap:0; padding:13px; }
+  #tab-games .game-card-art { flex-basis:76px; transform:scale(.7); margin-left:-13px; margin-right:-8px; }
+  #tab-games .game-card-description { font-size:11px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  #tab-games .game-card,.games-exit-button { transition:none; }
+}
