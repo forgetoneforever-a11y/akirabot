@@ -90,6 +90,10 @@ function publicPlayer(player) {
     auto_level: Number(player.auto_level || 0),
     auto_power: Number(player.auto_level || 0),
     multiplier_level: Number(player.multiplier_level || 0),
+    rank_title: rankForEarned(Number(player.total_earned || 0)).title,
+    rank_id: rankForEarned(Number(player.total_earned || 0)).rank,
+    rank_frame: rankForEarned(Number(player.total_earned || 0)).frame,
+    rank_multiplier: rankForEarned(Number(player.total_earned || 0)).multiplier,
     level: Math.max(1, Math.floor(Math.sqrt(Number(player.total_earned || 0) / 1000)) + 1),
     click_price: upgradePrice("click", player),
     auto_price: upgradePrice("auto", player),
@@ -227,8 +231,8 @@ app.post("/api/click", async (req, res, next) => {
     );
 
     const player = result.rows[0];
-    const reward = Number(player.click_power || 1) *
-      Math.pow(2, Number(player.multiplier_level || 0));
+    const rankBoost = rankForEarned(Number(player.total_earned || 0)).multiplier;
+    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost);
 
     const updated = await client.query(
       `UPDATE players
@@ -237,8 +241,9 @@ app.post("/api/click", async (req, res, next) => {
       [reward, player.telegram_id]
     );
 
+    const rankResult = await grantRankRewards(client, updated.rows[0]);
     await client.query("COMMIT");
-    res.json({ ok: true, reward, player: publicPlayer(updated.rows[0]) });
+    res.json({ ok: true, reward, rank_bonus: rankResult.bonus, player: publicPlayer(rankResult.player) });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -340,6 +345,26 @@ app.post("/api/daily", async (req, res, next) => {
   }
 });
 
+const RANK_REWARDS = [
+ {rank:"experienced",title:"Опытный",threshold:5000,reward:1000,multiplier:1.05,frame:"frame-experienced"},
+ {rank:"veteran",title:"Ветеран",threshold:25000,reward:5000,multiplier:1.10,frame:"frame-veteran"},
+ {rank:"master",title:"Мастер",threshold:100000,reward:20000,multiplier:1.15,frame:"frame-master"},
+ {rank:"emperor",title:"Император",threshold:250000,reward:50000,multiplier:1.25,frame:"frame-emperor"},
+ {rank:"legend",title:"Легенда",threshold:1000000,reward:250000,multiplier:1.50,frame:"frame-legend"}
+];
+function rankForEarned(total) {
+ return [...RANK_REWARDS].reverse().find(r=>total>=r.threshold)||{rank:"rookie",title:"Новичок",threshold:0,reward:0,multiplier:1,frame:"frame-rookie"};
+}
+async function grantRankRewards(client, player) {
+ let bonus=0;
+ for(const rank of RANK_REWARDS.filter(r=>Number(player.total_earned||0)>=r.threshold)){
+  const claimed=await client.query("INSERT INTO player_rank_rewards (telegram_id,rank_id,reward) VALUES ($1,$2,$3) ON CONFLICT (telegram_id,rank_id) DO NOTHING RETURNING reward",[player.telegram_id,rank.rank,rank.reward]);
+  if(claimed.rowCount) bonus+=rank.reward;
+ }
+ if(!bonus)return {player,bonus};
+ const updated=await client.query("UPDATE players SET balance=balance+$1 WHERE telegram_id=$2 RETURNING *",[bonus,player.telegram_id]);
+ return {player:updated.rows[0],bonus};
+}
 function rankTitle(totalEarned) {
   if (totalEarned >= 1000000) return "Легенда";
   if (totalEarned >= 250000) return "Император";
@@ -563,6 +588,13 @@ async function start() {
       ELSE last_daily::timestamptz
     END
     WHERE last_daily IS NOT NULL AND last_daily_at IS NULL
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_rank_rewards (
+      id BIGSERIAL PRIMARY KEY, telegram_id TEXT NOT NULL, rank_id TEXT NOT NULL, reward BIGINT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE (telegram_id, rank_id)
+    )
   `);
 
   await pool.query(`
