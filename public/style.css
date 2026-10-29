@@ -1576,6 +1576,7 @@ textarea::placeholder {
 }
 #leaderboard .leaderboard-avatar {
   display: block;
+  background: #08090d;
   width: 44px;
   height: 44px;
   min-width: 44px;
