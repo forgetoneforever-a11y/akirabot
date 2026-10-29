@@ -261,6 +261,14 @@ function renderState(data) {
   setText("#balance", formatNumber(player.balance));
   setText("#total-earned", formatNumber(player.total_earned ?? player.totalEarned));
   setText("#level", player.level ?? 1);
+  const levelNow = Math.max(1, Number(player.level || 1));
+  const earned = Math.max(0, Number(player.total_earned || 0));
+  const currentLevelFloor = Math.pow(levelNow - 1, 2) * 1000;
+  const nextLevelFloor = Math.pow(levelNow, 2) * 1000;
+  const levelProgress = Math.max(0, Math.min(100, (earned - currentLevelFloor) / Math.max(1, nextLevelFloor - currentLevelFloor) * 100));
+  setText("#level-progress-label", `${formatNumber(earned)} / ${formatNumber(nextLevelFloor)} до уровня ${levelNow + 1}`);
+  const levelProgressBar = $("#level-progress-fill");
+  if (levelProgressBar) levelProgressBar.style.width = `${levelProgress}%`;
   setText("#click-power", formatNumber(getClickPower()));
   setText("#auto-power", formatNumber(getAutoPower()));
 
@@ -607,13 +615,19 @@ async function loadLeaderboard() {
       name.className = "leaderboard-name";
       name.textContent = player.name || player.username || "Игрок";
 
+      const details = document.createElement("div");
+      details.className = "leaderboard-details";
+      const level = document.createElement("span");
+      level.className = "leaderboard-level";
+      level.textContent = `LVL ${player.level ?? 1} · ${player.rank_title || "Новичок"}`;
       const score = document.createElement("span");
       score.className = "leaderboard-score";
       score.textContent = formatNumber(
         player.total_earned ?? player.totalEarned ?? player.score ?? player.balance
       );
 
-      row.append(rank, avatar, name, score);
+      details.append(name, level);
+      row.append(rank, avatar, details, score);
       container.appendChild(row);
     });
   } catch (error) {
