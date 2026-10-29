@@ -12,7 +12,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
 app.set("trust proxy", 1);
 
 const WEB_APP_URL = process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || "https://akirabot-krl0.onrender.com/";
-const SUPPORT_URL = process.env.SUPPORT_URL || "https://t.me/akiracliker_bot";
+const SUPPORT_URL = process.env.SUPPORT_URL || "tg://user?id=8617178928";
 const BOT_API = BOT_TOKEN ? "https://api.telegram.org/bot" + BOT_TOKEN : "";
 let telegramOffset = 0;
 let pollingStarted = false;
