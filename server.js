@@ -698,6 +698,12 @@ async function start() {
     )
   `);
   await pool.query(`CREATE TABLE IF NOT EXISTS player_friends(telegram_id TEXT NOT NULL,friend_telegram_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(telegram_id,friend_telegram_id),CHECK(telegram_id<>friend_telegram_id))`);
+  // Migrate legacy friend IDs to TEXT; older deployments may have BIGINT columns.
+  await pool.query(`
+    ALTER TABLE player_friends
+      ALTER COLUMN telegram_id TYPE TEXT USING telegram_id::text,
+      ALTER COLUMN friend_telegram_id TYPE TEXT USING friend_telegram_id::text
+  `);
   await pool.query(`CREATE TABLE IF NOT EXISTS player_gifts(id BIGSERIAL PRIMARY KEY,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,amount BIGINT NOT NULL CHECK(amount>0),request_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(sender_id,request_id))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_skins (
