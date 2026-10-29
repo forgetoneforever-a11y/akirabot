@@ -1,4 +1,3 @@
-
 "use strict";
 
 const API_BASE = "/api";
@@ -27,6 +26,7 @@ function formatNumber(value) {
 
 function showToast(message) {
   const toast = $("#toast");
+
   if (!toast) {
     console.log(message);
     return;
@@ -37,6 +37,7 @@ function showToast(message) {
   toast.classList.remove("hidden");
 
   clearTimeout(showToast.timer);
+
   showToast.timer = setTimeout(() => {
     toast.classList.remove("show", "active");
   }, 2200);
@@ -69,16 +70,18 @@ async function api(path, options = {}) {
 
   if (!response.ok) {
     throw new Error(
-      data.error || data.message || `Ошибка сервера: HTTP ${response.status}`
+      data.error ||
+      data.message ||
+      `Ошибка сервера: HTTP ${response.status}`
     );
   }
 
   return data;
 }
 
-/* -------------------------
+/* =========================
    ТЕМЫ
-------------------------- */
+========================= */
 
 function normalizeTheme(theme) {
   return THEMES.includes(theme) ? theme : DEFAULT_THEME;
@@ -130,9 +133,9 @@ function initThemes() {
   });
 }
 
-/* -------------------------
+/* =========================
    ИГРОК И ОТОБРАЖЕНИЕ
-------------------------- */
+========================= */
 
 function getPlayer() {
   return state.player || {};
@@ -144,7 +147,11 @@ function getBalance() {
 
 function getClickPower() {
   const player = getPlayer();
-  const power = number(player.click_power ?? player.clickPower ?? 1);
+
+  const power = number(
+    player.click_power ?? player.clickPower ?? 1
+  );
+
   const multiplierLevel = number(
     player.multiplier_level ?? player.multiplierLevel
   );
@@ -177,7 +184,9 @@ function renderState(data) {
   const player = getPlayer();
 
   const balance = $("#balance");
-  if (balance) balance.textContent = formatNumber(player.balance);
+  if (balance) {
+    balance.textContent = formatNumber(player.balance);
+  }
 
   const totalEarned = $("#total-earned");
   if (totalEarned) {
@@ -193,13 +202,11 @@ function renderState(data) {
 
   const clickPower = $("#click-power");
   if (clickPower) {
-    // Не добавляем "+": знак можно оставить в HTML.
     clickPower.textContent = formatNumber(getClickPower());
   }
 
   const autoPower = $("#auto-power");
   if (autoPower) {
-    // Не добавляем "/сек авто": это может уже находиться в HTML.
     autoPower.textContent = formatNumber(getAutoPower());
   }
 
@@ -264,19 +271,24 @@ async function loadState() {
   }
 }
 
-/* -------------------------
+/* =========================
    КЛИКЕР
-------------------------- */
+========================= */
 
 function animateCookie() {
   const button = $("#cookie-button");
   if (!button) return;
 
   button.classList.remove("clicked");
+
+  // Перезапускаем CSS-анимацию клика.
   void button.offsetWidth;
+
   button.classList.add("clicked");
 
-  setTimeout(() => button.classList.remove("clicked"), 180);
+  setTimeout(() => {
+    button.classList.remove("clicked");
+  }, 180);
 }
 
 async function clickCookie() {
@@ -301,9 +313,9 @@ async function clickCookie() {
   }
 }
 
-/* -------------------------
+/* =========================
    ПОКУПКА УЛУЧШЕНИЙ
-------------------------- */
+========================= */
 
 async function buyUpgrade(type) {
   if (state.loading) return;
@@ -316,17 +328,25 @@ async function buyUpgrade(type) {
     try {
       data = await api("/upgrades", {
         method: "POST",
-        body: { type, upgrade: type },
+        body: {
+          type,
+          upgrade: type,
+        },
       });
     } catch (error) {
-      if (!String(error.message).includes("404") &&
-          !String(error.message).includes("405")) {
+      if (
+        !String(error.message).includes("404") &&
+        !String(error.message).includes("405")
+      ) {
         throw error;
       }
 
       data = await api("/buy", {
         method: "POST",
-        body: { type, upgrade: type },
+        body: {
+          type,
+          upgrade: type,
+        },
       });
     }
 
@@ -345,12 +365,13 @@ async function buyUpgrade(type) {
   }
 }
 
-/* -------------------------
+/* =========================
    ЕЖЕДНЕВНАЯ НАГРАДА
-------------------------- */
+========================= */
 
 async function claimDailyReward() {
   const button = $("#daily-button");
+
   if (button?.disabled) return;
 
   try {
@@ -372,9 +393,9 @@ async function claimDailyReward() {
   }
 }
 
-/* -------------------------
+/* =========================
    ВКЛАДКИ
-------------------------- */
+========================= */
 
 function switchTab(tabName) {
   const validTabs = ["shop", "top", "profile", "themes"];
@@ -410,9 +431,9 @@ function switchTab(tabName) {
   }
 }
 
-/* -------------------------
+/* =========================
    ТАБЛИЦА ЛИДЕРОВ
-------------------------- */
+========================= */
 
 async function loadLeaderboard() {
   const container = $("#leaderboard");
@@ -422,6 +443,7 @@ async function loadLeaderboard() {
 
   try {
     const data = await api("/leaderboard");
+
     const players = Array.isArray(data)
       ? data
       : data.players || data.leaderboard || [];
@@ -449,7 +471,9 @@ async function loadLeaderboard() {
       const score = document.createElement("span");
       score.className = "leaderboard-score";
       score.textContent = formatNumber(
-        player.total_earned ?? player.totalEarned ?? player.balance
+        player.total_earned ??
+        player.totalEarned ??
+        player.balance
       );
 
       row.append(rank, name, score);
@@ -457,13 +481,15 @@ async function loadLeaderboard() {
     });
   } catch (error) {
     console.error("Ошибка рейтинга:", error);
-    container.textContent = error.message || "Не удалось загрузить рейтинг";
+
+    container.textContent =
+      error.message || "Не удалось загрузить рейтинг";
   }
 }
 
-/* -------------------------
+/* =========================
    ОБРАБОТЧИКИ КНОПОК
-------------------------- */
+========================= */
 
 function initEventHandlers() {
   const cookieButton = $("#cookie-button");
@@ -485,23 +511,24 @@ function initEventHandlers() {
   });
 
   const dailyButton = $("#daily-button");
+
   if (dailyButton) {
     dailyButton.addEventListener("click", claimDailyReward);
   }
 }
 
-/* -------------------------
-   ЗАПУСК
-------------------------- */
+/* =========================
+   ЗАПУСК ПРИЛОЖЕНИЯ
+========================= */
 
 function init() {
   initThemes();
   initEventHandlers();
 
-  // Показываем магазин при открытии игры.
+  // При открытии показываем магазин.
   switchTab("shop");
 
-  // Загружаем состояние игрока с сервера.
+  // Загружаем данные игрока с сервера.
   loadState();
 }
 
