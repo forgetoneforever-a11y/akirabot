@@ -364,56 +364,55 @@
         </div>
       </section>
 
-      <!-- MINI-GAMES -->
-      <section class="tab-content" id="tab-games" hidden>
-
-        <div class="card games-header-card">
-          <h2 class="section-title">🎮 Мини-игры</h2>
-          <p class="section-description">
-            Играй против ботов или соревнуйся с другими игроками
-          </p>
+      <!-- MINI-GAMES: отдельный полноэкранный раздел -->
+      <section class="tab-content games-screen" id="tab-games" hidden>
+        <div class="games-screen-topbar">
+          <button class="games-exit-button" id="games-exit-button" type="button">
+            <span aria-hidden="true">←</span> В меню AKIRA
+          </button>
+          <div class="games-brand"><span class="games-brand-mark">A</span> AKIRA <span>ARCADE</span></div>
         </div>
 
+        <header class="games-hero">
+          <div class="games-eyebrow"><span class="games-live-dot"></span> ИГРОВАЯ ЗОНА</div>
+          <h1>Выбери свою <span>игру</span></h1>
+          <p>Отдохни от империи печенек. Сыграй партию против бота или выбери онлайн-режим.</p>
+        </header>
+
         <div class="games-grid">
-          <button
-            class="game-card"
-            type="button"
-            data-open-game="durak"
-          >
-            <div class="game-card-icon">🃏</div>
-            <div class="game-card-title">Дурак</div>
-            <div class="game-card-description">
-              Подкидной и переводной
+          <button class="game-card game-card-durak" type="button" data-open-game="durak" aria-pressed="true">
+            <div class="game-card-art" aria-hidden="true"><span>🂡</span><span>🂱</span><span>🃏</span></div>
+            <div class="game-card-content">
+              <div class="game-card-kicker">КАРТОЧНАЯ ИГРА</div>
+              <div class="game-card-title">Дурак</div>
+              <div class="game-card-description">Подкидной и переводной режимы</div>
+              <span class="game-card-action">Выбрать игру <b>↗</b></span>
             </div>
-            <span class="game-card-action">Играть →</span>
+            <span class="game-card-number">01</span>
           </button>
 
-          <button
-            class="game-card"
-            type="button"
-            data-open-game="chess"
-          >
-            <div class="game-card-icon">♟️</div>
-            <div class="game-card-title">Шахматы</div>
-            <div class="game-card-description">
-              Партии с ботами и игроками
+          <button class="game-card game-card-chess" type="button" data-open-game="chess" aria-pressed="false">
+            <div class="game-card-art chess-art" aria-hidden="true"><span>♞</span><span>♜</span><span>♛</span></div>
+            <div class="game-card-content">
+              <div class="game-card-kicker">СТРАТЕГИЯ</div>
+              <div class="game-card-title">Шахматы</div>
+              <div class="game-card-description">Проверь тактику против соперника</div>
+              <span class="game-card-action">Выбрать игру <b>↗</b></span>
             </div>
-            <span class="game-card-action">Играть →</span>
+            <span class="game-card-number">02</span>
           </button>
         </div>
 
         <!-- GAME MENU -->
-        <section class="game-panel card" id="game-menu-panel">
-          <h2 class="section-title" id="game-menu-title">
-            Выбери игру
-          </h2>
-
-          <p
-            class="section-description"
-            id="game-menu-description"
-          >
-            Начни игру с ботом или найди соперника онлайн.
-          </p>
+        <section class="game-panel card games-setup-panel" id="game-menu-panel">
+          <div class="games-setup-heading">
+            <div>
+              <div class="games-setup-kicker">НОВАЯ ПАРТИЯ</div>
+              <h2 class="section-title" id="game-menu-title">Настрой игру</h2>
+              <p class="section-description" id="game-menu-description">Выбери режим и параметры перед стартом.</p>
+            </div>
+            <div class="games-setup-symbol" aria-hidden="true">✦</div>
+          </div>
 
           <div class="game-mode-buttons">
             <button
