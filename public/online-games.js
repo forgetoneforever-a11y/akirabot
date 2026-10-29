@@ -2,7 +2,7 @@
 
 /* Authenticated Socket.IO matchmaking for AKIRA online games. */
 (() => {
-  const state = { socket: null, roomCode: null, game: null, snapshot: null };
+  const state = { socket: null, roomCode: null, game: null, snapshot: null, active: false };
   const $ = (selector) => document.querySelector(selector);
 
   function getTelegramUser() {
@@ -76,6 +76,7 @@
     });
     state.roomCode = result.roomCode;
     state.snapshot = result.state;
+    state.active = true;
     status(result.waiting ? "Ищем второго игрока… Код комнаты: " + result.roomCode : "Соперник найден! Подготовка матча…");
     return {
       success: true,
@@ -103,8 +104,10 @@
   }
 
   function leave() {
-    if (!state.socket) return;
-    state.socket.emit("game:leave", { roomCode: state.roomCode });
+    state.active = false;
+    if (state.socket && state.roomCode) {
+      state.socket.emit("game:leave", { roomCode: state.roomCode });
+    }
     state.roomCode = null;
     state.snapshot = null;
     state.game = null;
@@ -227,7 +230,7 @@
     const take = event.target.closest('[data-durak-action="take"]');
     const pass = event.target.closest('[data-durak-action="pass"]');
     if (!take && !pass) return;
-    if (state.game !== "durak" || !state.snapshot?.durak) return;
+    if (!state.active || state.game !== "durak" || !state.snapshot?.durak) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (take) action("take").catch((error) => status(error.message));
