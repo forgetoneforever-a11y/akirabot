@@ -411,9 +411,8 @@
       return;
     }
 
-    if (state.mode === "bot" && state.game.turn() !== state.playerColor) {
-      return;
-    }
+    if (state.mode !== "online" && state.mode !== "bot") return;
+    if (state.game.turn() !== state.playerColor) return;
 
     const clickedPiece = state.game.get(squareName);
 
@@ -503,6 +502,12 @@
     };
 
     state.moveCount += 1;
+
+    if (state.mode === "online" && window.AKIRAOnlineGames?.action) {
+      window.AKIRAOnlineGames.action("move", {
+        move: { from: move.from, to: move.to, promotion: move.promotion || "q" }
+      }).catch((error) => setStatus(error.message || "Ход не принят сервером."));
+    }
 
     clearSelection();
     renderBoard();
@@ -865,7 +870,31 @@
   window.undoChessMove = undoChessMove;
   window.destroyChessGame = destroyChessGame;
 
+  function applyOnlineChessState(snapshot) {
+    if (!snapshot?.chess || !state.game) {
+      state.game = createChessInstance();
+    }
+    const fen = snapshot?.chess?.fen;
+    if (fen && fen !== "start") {
+      try { state.game.load(fen); } catch (error) { console.warn("[AKIRA Chess] FEN sync failed", error); }
+    } else if (state.game && state.game.fen() !== new window.Chess().fen()) {
+      state.game = createChessInstance();
+    }
+    state.mode = "online";
+    state.active = snapshot.status === "playing";
+    state.finished = snapshot.status === "finished";
+    state.thinking = false;
+    state.playerColor = snapshot.chess?.color === "b" ? "b" : "w";
+    state.history = state.game.history({ verbose: true });
+    const last = state.history[state.history.length - 1];
+    state.lastMove = last ? { from: last.from, to: last.to } : null;
+    clearSelection();
+    renderBoard();
+    setStatus(snapshot.message || (state.game.turn() === state.playerColor ? "Твой ход." : "Ход соперника."));
+  }
+
   window.AKIRAChess = {
+    applyOnlineState: applyOnlineChessState,
     start: startChessGame,
     undo: undoChessMove,
     destroy: destroyChessGame,
