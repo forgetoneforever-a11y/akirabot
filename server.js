@@ -697,7 +697,27 @@ async function start() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query(`CREATE TABLE IF NOT EXISTS player_friends(telegram_id TEXT NOT NULL,friend_telegram_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(telegram_id,friend_telegram_id),CHECK(telegram_id<>friend_telegram_id))`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_friends (
+      telegram_id TEXT NOT NULL,
+      friend_telegram_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (telegram_id, friend_telegram_id),
+      CHECK (telegram_id <> friend_telegram_id)
+    )
+  `);
+  // Repair older installations where the social tables were created by an earlier schema.
+  await pool.query(`
+    ALTER TABLE player_friends
+      ADD COLUMN IF NOT EXISTS telegram_id TEXT,
+      ADD COLUMN IF NOT EXISTS friend_telegram_id TEXT,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS player_friends_pair_unique
+    ON player_friends (telegram_id, friend_telegram_id)
+  `);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS player_gifts(id BIGSERIAL PRIMARY KEY,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,amount BIGINT NOT NULL CHECK(amount>0),request_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(sender_id,request_id))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_skins (
