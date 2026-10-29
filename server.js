@@ -93,7 +93,9 @@ function publicPlayer(player) {
     level: Math.max(1, Math.floor(Math.sqrt(Number(player.total_earned || 0) / 1000)) + 1),
     click_price: upgradePrice("click", player),
     auto_price: upgradePrice("auto", player),
-    multiplier_price: upgradePrice("multiplier", player)
+    multiplier_price: upgradePrice("multiplier", player),
+    last_daily_at: player.last_daily_at || null,
+    next_daily_at: player.last_daily_at ? new Date(new Date(player.last_daily_at).getTime() + 24 * 60 * 60 * 1000).toISOString() : null
   };
 }
 
@@ -291,18 +293,25 @@ app.post("/api/daily", async (req, res, next) => {
     );
 
     const player = result.rows[0];
-    const today = new Date().toISOString().slice(0, 10);
+    const lastClaim = player.last_daily_at ? new Date(player.last_daily_at).getTime() : 0;
+    const cooldownMs = 24 * 60 * 60 * 1000;
+    const remainingMs = lastClaim ? lastClaim + cooldownMs - Date.now() : 0;
 
-    if (player.last_daily && String(player.last_daily).slice(0, 10) === today) {
+    if (remainingMs > 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Ежедневная награда уже получена сегодня" });
+      return res.status(400).json({
+        error: "Награда будет доступна через " + Math.ceil(remainingMs / 1000) + " сек.",
+        remaining_seconds: Math.ceil(remainingMs / 1000),
+        next_daily_at: new Date(lastClaim + cooldownMs).toISOString()
+      });
     }
 
     const updated = await client.query(
       `UPDATE players
        SET balance = balance + 500,
            total_earned = total_earned + 500,
-           last_daily = CURRENT_DATE
+           last_daily = CURRENT_DATE,
+           last_daily_at = NOW()
        WHERE telegram_id = $1 RETURNING *`,
       [player.telegram_id]
     );
@@ -451,7 +460,17 @@ async function start() {
       ADD COLUMN IF NOT EXISTS auto_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS last_daily DATE,
+      ADD COLUMN IF NOT EXISTS last_daily_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  await pool.query(`
+    UPDATE players
+    SET last_daily_at = CASE
+      WHEN last_daily = CURRENT_DATE THEN NOW()
+      ELSE last_daily::timestamptz
+    END
+    WHERE last_daily IS NOT NULL AND last_daily_at IS NULL
   `);
 
   await pool.query(`
