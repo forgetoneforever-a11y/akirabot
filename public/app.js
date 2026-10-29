@@ -248,6 +248,57 @@ async function loadTasks() {
   }
 }
 
+
+async function loadCollection(){
+ const casesEl=$("#case-list"), collectionEl=$("#skin-collection");
+ if(!casesEl||!collectionEl)return;
+ try{
+  const data=await api("/collection");
+  casesEl.replaceChildren();
+  data.cases.forEach(item=>{
+   const card=document.createElement("div");card.className="case-item";
+   const art=document.createElement("div");art.className="case-art";art.textContent=item.emoji;
+   const info=document.createElement("div");info.className="case-info";
+   const title=document.createElement("strong");title.textContent=item.name;
+   const desc=document.createElement("span");desc.textContent=item.description;
+   const price=document.createElement("span");price.className="case-price";price.textContent=formatNumber(item.price)+" 🍪";
+   info.append(title,desc,price);
+   const button=document.createElement("button");button.className="buy-button";button.type="button";button.textContent="Открыть";
+   button.addEventListener("click",()=>openCase(item.id,button));
+   card.append(art,info,button);casesEl.append(card);
+  });
+  collectionEl.replaceChildren();
+  const owned=new Set(data.owned.map(item=>item.skin_id));
+  const equipped=data.equipped;
+  const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+data.skins.length;
+  data.skins.forEach(skin=>{
+   const item=data.owned.find(row=>row.skin_id===skin.id);
+   const card=document.createElement("div");card.className="skin-card rarity-"+skin.rarity+(item?" owned":" locked")+(skin.id===equipped?" equipped":"");
+   const icon=document.createElement("div");icon.className="skin-icon";icon.textContent=item?skin.emoji:"❔";
+   const name=document.createElement("strong");name.textContent=item?skin.name:"Не найден";
+   const rarity=document.createElement("span");rarity.textContent=skin.label;
+   const button=document.createElement("button");button.type="button";button.className="skin-equip";
+   button.textContent=!item?"Закрыто":skin.id===equipped?"Надет":"Надеть";button.disabled=!item||skin.id===equipped;
+   button.addEventListener("click",()=>equipSkin(skin.id));
+   card.append(icon,name,rarity,button);collectionEl.append(card);
+  });
+ }catch(error){casesEl.textContent="Не удалось загрузить кейсы.";collectionEl.textContent=error.message||"Не удалось загрузить коллекцию.";}
+}
+async function openCase(caseId,button){
+ const result=$("#case-result");if(button)button.disabled=true;
+ try{
+  const data=await api("/cases/open",{method:"POST",body:JSON.stringify({case_id:caseId})});
+  renderState({player:data.player});
+  if(result){result.className="case-result rarity-"+data.skin.rarity;result.textContent=(data.duplicate?"🔁 Дубликат! ":"✨ Новый предмет! ")+data.skin.emoji+" "+data.skin.name+" — "+data.skin.label;}
+  await loadCollection();
+ }catch(error){if(result){result.className="case-result error";result.textContent=error.message||"Не удалось открыть кейс";}else showToast(error.message);}
+ finally{if(button)button.disabled=false;}
+}
+async function equipSkin(skinId){
+ try{await api("/skins/equip",{method:"POST",body:JSON.stringify({skin_id:skinId})});await loadCollection();showToast("Скин экипирован!");}
+ catch(error){showToast(error.message||"Не удалось надеть скин");}
+}
+
 function renderState(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Сервер вернул пустое состояние игры");
@@ -300,6 +351,7 @@ function renderState(data) {
 
   updateUpgradePrices();
   updateDailyRewardButton();
+  loadCollection();
   loadTasks();
 
   document.dispatchEvent(
