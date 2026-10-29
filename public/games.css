@@ -1055,3 +1055,16 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
 @media (prefers-reduced-motion:reduce) {
   #tab-games .game-card,.games-exit-button { transition:none; }
 }
+
+
+/* Скрываем каталог, пока идёт партия, но оставляем верхнюю кнопку выхода. */
+#tab-games.games-screen[data-playing="true"] .games-hero,
+#tab-games.games-screen[data-playing="true"] .games-grid,
+#tab-games.games-screen[data-playing="true"] #game-menu-panel { display:none !important; }
+#tab-games.games-screen[data-playing="true"] .game-panel:not([hidden]) {
+  display:block; animation:arcade-panel-in .22s ease-out both;
+}
+@keyframes arcade-panel-in {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
