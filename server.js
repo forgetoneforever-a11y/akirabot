@@ -296,8 +296,21 @@ app.get("/api/leaderboard", async (req, res, next) => {
 
 app.patch("/api/profile", async (req, res, next) => {
   try {
-    const name = String(req.body?.name || "").trim();
-    const avatarUrl = req.body?.avatar_url == null ? null : String(req.body.avatar_url);
+    const name = String(req.body?.name ?? req.player.name ?? "").trim();
+    const body = req.body || {};
+    const hasAvatarField =
+      Object.prototype.hasOwnProperty.call(body, "avatar_url") ||
+      Object.prototype.hasOwnProperty.call(body, "avatar") ||
+      body.resetAvatar === true;
+
+    let avatarUrl;
+    if (body.resetAvatar === true) {
+      avatarUrl = null;
+    } else if (Object.prototype.hasOwnProperty.call(body, "avatar_url")) {
+      avatarUrl = body.avatar_url == null ? null : String(body.avatar_url);
+    } else if (Object.prototype.hasOwnProperty.call(body, "avatar")) {
+      avatarUrl = body.avatar == null ? null : String(body.avatar);
+    }
 
     if (!name || name.length > 24) {
       return res.status(400).json({ error: "Имя должно содержать от 1 до 24 символов" });
@@ -307,14 +320,20 @@ app.patch("/api/profile", async (req, res, next) => {
       return res.status(413).json({ error: "Изображение слишком большое" });
     }
 
-    if (avatarUrl && !/^data:image\/(png|jpeg|webp|gif);base64,/i.test(avatarUrl)) {
+    if (
+      avatarUrl &&
+      !/^data:image\/(png|jpeg|webp|gif);base64,/i.test(avatarUrl)
+    ) {
       return res.status(400).json({ error: "Поддерживаются PNG, JPG, WEBP и GIF" });
     }
 
     const result = await pool.query(
-      `UPDATE players SET name = $1, avatar_url = $2
-       WHERE telegram_id = $3 RETURNING *`,
-      [name, avatarUrl, req.player.telegram_id]
+      `UPDATE players
+       SET name = $1,
+           avatar_url = CASE WHEN $2 THEN $3 ELSE avatar_url END
+       WHERE telegram_id = $4
+       RETURNING *`,
+      [name, hasAvatarField, avatarUrl ?? null, req.player.telegram_id]
     );
 
     res.json({ ok: true, player: publicPlayer(result.rows[0]) });
