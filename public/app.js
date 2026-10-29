@@ -171,6 +171,26 @@ function getAvatarUrl(player = getPlayer()) {
   return player.avatar_url || player.avatarUrl || "/avatar-default.svg";
 }
 
+function updateDailyRewardButton() {
+  const button = $("#daily-button");
+  if (!button) return;
+  const next = getPlayer().next_daily_at;
+  const remaining = next ? new Date(next).getTime() - Date.now() : 0;
+  if (remaining > 0) {
+    const totalSeconds = Math.ceil(remaining / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    button.disabled = true;
+    button.textContent = `🎁 Следующая награда через ${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
+    button.setAttribute("aria-label", "Ежедневная награда будет доступна через 24 часа после получения");
+  } else {
+    button.disabled = false;
+    button.textContent = "🎁 Забрать ежедневную награду";
+    button.removeAttribute("aria-label");
+  }
+}
+
 function renderState(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Сервер вернул пустое состояние игры");
@@ -212,6 +232,7 @@ function renderState(data) {
   }
 
   updateUpgradePrices();
+  updateDailyRewardButton();
 
   document.dispatchEvent(
     new CustomEvent("akira:state-updated", { detail: { player } })
@@ -378,7 +399,7 @@ async function claimDailyReward() {
     console.error("Ошибка ежедневной награды:", error);
     showToast(error.message || "Не удалось получить награду");
   } finally {
-    if (button) button.disabled = false;
+    updateDailyRewardButton();
   }
 }
 
@@ -747,6 +768,7 @@ function initEventHandlers() {
 ========================= */
 
 function init() {
+  if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
   const telegram = window.Telegram?.WebApp;
 
   try {
