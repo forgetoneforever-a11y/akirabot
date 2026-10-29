@@ -3,88 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#10060b">
+  <meta name="theme-color" content="#170b12">
   <meta name="description" content="AKIRA! — Cookie Empire">
   <title>AKIRA! — Cookie Empire</title>
+
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/games.css">
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 </head>
 <body>
   <div id="app" class="app-container">
 
-    <!-- Шапка -->
     <header class="header">
       <div class="brand">
         <div class="logo-avatar">
           <img src="/images/akira-avatar.png" alt="AKIRA">
         </div>
-
         <div class="brand-info">
           <h1 class="brand-title">AKIRA<span>!</span></h1>
           <div class="brand-subtitle">COOKIE EMPIRE</div>
         </div>
       </div>
-
-      <div class="level-badge">
-        LVL <span id="level">1</span>
-      </div>
+      <div class="level-badge">LVL <span id="level">1</span></div>
     </header>
 
-    <!-- Баланс -->
     <section class="balance-card">
       <div class="balance-label">ТВОЙ БАЛАНС</div>
-
       <div class="balance-value">
         <span class="coin-icon">◎</span>
         <span id="balance">0</span>
       </div>
-
-      <div class="total-earned">
-        Всего заработано: <span id="total-earned">0</span>
-      </div>
+      <div class="total-earned">Всего заработано: <span id="total-earned">0</span></div>
     </section>
 
-    <!-- Большая зона клика -->
     <section class="clicker-card" id="click-area">
-      <button
-        class="cookie-button"
-        id="cookie-button"
-        type="button"
-        aria-label="Нажми, чтобы заработать монеты"
-      >
-        🍪
-      </button>
+      <button class="cookie-button" id="cookie-button" type="button" aria-label="Нажми, чтобы заработать монеты">🍪</button>
     </section>
 
     <div class="click-hint">НАЖИМАЙ, ЧТОБЫ ЗАРАБАТЫВАТЬ</div>
-
     <div class="click-stats">
       <span>+<span id="click-power">1</span> за клик</span>
       <span class="separator">•</span>
       <span><span id="auto-power">0</span>/сек авто</span>
     </div>
 
-    <!-- Навигация -->
     <nav class="navbar" aria-label="Главное меню">
-      <button class="nav-button active" data-tab="shop" type="button">
-        <span>⚡</span> Магазин
-      </button>
-
-      <button class="nav-button" data-tab="top" type="button">
-        <span>🏆</span> Топ
-      </button>
-
-      <button class="nav-button" data-tab="profile" type="button">
-        <span>👤</span> Профиль
-      </button>
-
-      <button class="nav-button" data-tab="themes" type="button">
-        <span>⚙️</span> Темы
-      </button>
+      <button class="nav-button active" data-tab="shop" type="button"><span>⚡</span>Магазин</button>
+      <button class="nav-button" data-tab="top" type="button"><span>🏆</span>Топ</button>
+      <button class="nav-button" data-tab="profile" type="button"><span>👤</span>Профиль</button>
+      <button class="nav-button" data-tab="themes" type="button"><span>🎨</span>Темы</button>
     </nav>
 
-    <!-- Магазин -->
     <main>
+      <!-- МАГАЗИН -->
       <section class="tab-content" id="tab-shop">
         <div class="upgrades-card">
           <div class="upgrades-header">
@@ -92,156 +65,215 @@
               <h2 class="section-title">Улучшения</h2>
               <p class="section-description">Стань легендой печенек</p>
             </div>
-
             <span class="level-badge">UPGRADE</span>
           </div>
 
           <div class="upgrade-item">
             <div class="upgrade-icon">👆</div>
-
             <div class="upgrade-info">
               <h3 class="upgrade-name">Сильный палец</h3>
-              <div class="upgrade-description">+1 монета за клик</div>
-              <div class="upgrade-price">
-                Цена: <span id="finger-price">50</span> ◎
-              </div>
+              <div class="upgrade-description">Увеличивает доход за клик</div>
+              <div class="upgrade-price">Цена: <span id="finger-price">50</span> ◎</div>
             </div>
-
-            <button
-              class="buy-button"
-              type="button"
-              data-upgrade="click"
-            >
-              Купить
-            </button>
+            <button class="buy-button" data-upgrade="click" type="button">Купить</button>
           </div>
 
           <div class="upgrade-item">
             <div class="upgrade-icon">🤖</div>
-
             <div class="upgrade-info">
               <h3 class="upgrade-name">Автокликер</h3>
               <div class="upgrade-description">Зарабатывает автоматически</div>
-              <div class="upgrade-price">
-                Цена: <span id="auto-price">100</span> ◎
-              </div>
+              <div class="upgrade-price">Цена: <span id="auto-price">250</span> ◎</div>
             </div>
-
-            <button
-              class="buy-button"
-              type="button"
-              data-upgrade="auto"
-            >
-              Купить
-            </button>
+            <button class="buy-button" data-upgrade="auto" type="button">Купить</button>
           </div>
 
           <div class="upgrade-item">
             <div class="upgrade-icon">✨</div>
-
             <div class="upgrade-info">
               <h3 class="upgrade-name">Множитель</h3>
               <div class="upgrade-description">Увеличивает доход</div>
-              <div class="upgrade-price">
-                Цена: <span id="multiplier-price">250</span> ◎
-              </div>
+              <div class="upgrade-price">Цена: <span id="multiplier-price">1000</span> ◎</div>
             </div>
-
-            <button
-              class="buy-button"
-              type="button"
-              data-upgrade="multiplier"
-            >
-              Купить
-            </button>
+            <button class="buy-button" data-upgrade="multiplier" type="button">Купить</button>
           </div>
+
+          <button class="btn btn-secondary btn-full" id="daily-shop-button" type="button" onclick="document.querySelector('[data-tab=profile]').click()">
+            🎁 Ежедневная награда — в профиле
+          </button>
         </div>
       </section>
 
-      <!-- Топ -->
+      <!-- РЕЙТИНГ -->
       <section class="tab-content" id="tab-top" hidden>
         <div class="card">
           <h2 class="section-title">🏆 Топ игроков</h2>
           <p class="section-description">Лучшие императоры печенек</p>
-
           <div id="leaderboard">
-            <p class="section-description">Загружаем рейтинг...</p>
+            <p class="section-description">Загрузка рейтинга…</p>
           </div>
         </div>
       </section>
 
-      <!-- Профиль -->
+      <!-- ПРОФИЛЬ -->
       <section class="tab-content" id="tab-profile" hidden>
         <div class="profile-card card">
           <h2 class="section-title">👤 Профиль</h2>
-          <p class="section-description">Твоя статистика AKIRA!</p>
+          <p class="section-description">Настрой свой игровой профиль</p>
 
-          <div style="margin: 22px 0;">
-            <div class="stat-label">Игрок</div>
-            <div class="stat-value" id="player-name">Игрок</div>
+          <div class="profile-identity">
+            <img id="profile-avatar" class="profile-avatar" src="/avatar-default.svg" alt="Аватар игрока">
+            <div class="profile-identity-info">
+              <div class="stat-label">Твоё имя</div>
+              <div class="stat-value" id="player-name">Игрок</div>
+            </div>
           </div>
+
+          <form id="profile-form" class="profile-form">
+            <label for="profile-name-input">Игровое имя</label>
+            <input id="profile-name-input" name="name" type="text" maxlength="24" placeholder="Введи имя" autocomplete="nickname">
+            <label for="profile-avatar-input">Аватарка</label>
+            <input id="profile-avatar-input" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+            <div class="profile-hint">Можно оставить стандартную аватарку. Максимальный размер изображения — 1 МБ.</div>
+            <button class="btn btn-secondary btn-full" id="profile-save-button" type="submit">💾 Сохранить профиль</button>
+            <button class="btn btn-full" id="profile-reset-avatar" type="button">Вернуть стандартную аватарку</button>
+          </form>
 
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-label">Баланс</div>
               <div class="stat-value" id="profile-balance">0</div>
             </div>
-
             <div class="stat-card">
               <div class="stat-label">Всего заработано</div>
               <div class="stat-value" id="profile-earned">0</div>
             </div>
-
             <div class="stat-card">
               <div class="stat-label">Сила клика</div>
               <div class="stat-value" id="profile-click">1</div>
             </div>
-
             <div class="stat-card">
               <div class="stat-label">Автодоход</div>
               <div class="stat-value" id="profile-auto">0/с</div>
             </div>
           </div>
 
-          <button
-            class="btn btn-secondary btn-full"
-            id="daily-button"
-            type="button"
-            style="margin-top: 20px;"
-          >
+          <button class="btn btn-secondary btn-full" id="daily-button" type="button" style="margin-top:20px">
             🎁 Ежедневная награда
           </button>
         </div>
       </section>
 
-      <!-- Темы -->
+      <!-- ТЕМЫ -->
       <section class="tab-content" id="tab-themes" hidden>
         <div class="card">
           <h2 class="section-title">🎨 Темы</h2>
           <p class="section-description">Выбери оформление игры</p>
 
-          <div class="theme-grid" style="margin-top: 20px;">
+          <div class="theme-grid" style="margin-top:20px">
             <button class="theme-option active" data-theme="crimson" type="button">
-              <div class="theme-preview" style="background: linear-gradient(135deg,#ff4f79,#ff8a72);"></div>
-              <div class="theme-name">Crimson</div>
+              <div class="theme-preview"></div><div class="theme-name">Crimson</div>
             </button>
-
             <button class="theme-option" data-theme="midnight" type="button">
-              <div class="theme-preview" style="background: linear-gradient(135deg,#39316f,#111126);"></div>
-              <div class="theme-name">Midnight</div>
+              <div class="theme-preview"></div><div class="theme-name">Midnight</div>
             </button>
-
             <button class="theme-option" data-theme="ocean" type="button">
-              <div class="theme-preview" style="background: linear-gradient(135deg,#16b8b0,#103d62);"></div>
-              <div class="theme-name">Ocean</div>
+              <div class="theme-preview"></div><div class="theme-name">Ocean</div>
             </button>
-
             <button class="theme-option" data-theme="emerald" type="button">
-              <div class="theme-preview" style="background: linear-gradient(135deg,#42d392,#155744);"></div>
-              <div class="theme-name">Emerald</div>
+              <div class="theme-preview"></div><div class="theme-name">Emerald</div>
             </button>
           </div>
         </div>
+      </section>
+
+      <!-- МИНИ-ИГРЫ -->
+      <section class="tab-content" id="tab-games" hidden>
+        <div class="card games-header-card">
+          <h2 class="section-title">🎮 Мини-игры</h2>
+          <p class="section-description">Играй против ботов или соревнуйся с другими игроками</p>
+        </div>
+
+        <div class="games-grid">
+          <button class="game-card" type="button" data-open-game="durak">
+            <div class="game-card-icon">🃏</div>
+            <div class="game-card-title">Дурак</div>
+            <div class="game-card-description">Подкидной и переводной</div>
+            <span class="game-card-action">Играть →</span>
+          </button>
+
+          <button class="game-card" type="button" data-open-game="chess">
+            <div class="game-card-icon">♟️</div>
+            <div class="game-card-title">Шахматы</div>
+            <div class="game-card-description">Партии с ботами и игроками</div>
+            <span class="game-card-action">Играть →</span>
+          </button>
+        </div>
+
+        <section class="game-panel card" id="game-menu-panel">
+          <h2 class="section-title" id="game-menu-title">Выбери игру</h2>
+          <p class="section-description" id="game-menu-description">Начни игру с ботом или найди соперника онлайн.</p>
+
+          <div class="game-mode-buttons">
+            <button class="btn btn-secondary btn-full" type="button" data-game-mode="bot">🤖 Играть с ботом</button>
+            <button class="btn btn-full" type="button" data-game-mode="online">🌐 Играть онлайн</button>
+          </div>
+
+          <div id="game-settings" class="game-settings">
+            <label for="durak-mode">Режим «Дурака»</label>
+            <select id="durak-mode">
+              <option value="throw-in">Подкидной</option>
+              <option value="transfer">Переводной</option>
+            </select>
+
+            <label for="game-difficulty">Сложность бота</label>
+            <select id="game-difficulty">
+              <option value="easy">Лёгкая</option>
+              <option value="medium">Средняя</option>
+              <option value="hard">Сложная</option>
+            </select>
+
+            <label for="chess-color">Цвет в шахматах</label>
+            <select id="chess-color">
+              <option value="white">Белые</option>
+              <option value="black">Чёрные</option>
+              <option value="random">Случайно</option>
+            </select>
+
+            <button class="btn btn-secondary btn-full" type="button" id="start-game-button">Начать игру</button>
+          </div>
+        </section>
+
+        <section class="game-panel card" id="durak-game-panel" hidden>
+          <div class="game-topline">
+            <button class="btn" type="button" data-back-games>← Назад</button>
+            <h2 class="section-title">🃏 Дурак</h2>
+          </div>
+          <div class="game-status" id="durak-status">Подготовка игры…</div>
+          <div class="durak-table">
+            <div class="durak-opponent" id="durak-opponent-hand"></div>
+            <div class="durak-trump" id="durak-trump"></div>
+            <div class="durak-field" id="durak-field"></div>
+            <div class="durak-player-hand" id="durak-player-hand"></div>
+          </div>
+          <div class="game-actions" id="durak-actions">
+            <button class="btn btn-secondary" type="button" data-durak-action="take">Взять</button>
+            <button class="btn btn-secondary" type="button" data-durak-action="pass">Бито / Завершить</button>
+          </div>
+        </section>
+
+        <section class="game-panel card" id="chess-game-panel" hidden>
+          <div class="game-topline">
+            <button class="btn" type="button" data-back-games>← Назад</button>
+            <h2 class="section-title">♟️ Шахматы</h2>
+          </div>
+          <div class="game-status" id="chess-status">Подготовка игры…</div>
+          <div id="chess-board" class="chess-board" aria-label="Шахматная доска"></div>
+          <div class="game-actions">
+            <button class="btn btn-secondary" type="button" id="chess-undo-button">Отменить ход</button>
+            <button class="btn" type="button" id="chess-new-button">Новая партия</button>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -249,5 +281,9 @@
   </div>
 
   <script src="/app.js"></script>
+  <script src="/profile.js"></script>
+  <script src="/durak.js"></script>
+  <script src="/chess.js"></script>
+  <script src="/games.js"></script>
 </body>
-                </html>
+</html>
