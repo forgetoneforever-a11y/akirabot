@@ -761,7 +761,7 @@ function init() {
   initEventHandlers();
   initSwipeNavigation();
 
-  switchTab("shop");
+  switchTab("home");
   loadState();
 }
 
