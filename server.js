@@ -412,12 +412,77 @@ app.patch("/api/profile", async (req, res, next) => {
   }
 });
 
-app.get("/api/tasks", (req, res) => {
-  res.json({ ok: true, tasks: [] });
+const DAILY_TASKS = [
+  { id: "earn-1000", title: "Первые заработки", description: "Заработай всего 1 000 печенек", reward: 250, goal: 1000, metric: "total_earned" },
+  { id: "earn-10000", title: "Печеньковый магнат", description: "Заработай всего 10 000 печенек", reward: 1000, goal: 10000, metric: "total_earned" },
+  { id: "upgrade-auto", title: "Автоматизация", description: "Купи хотя бы 1 уровень автокликера", reward: 300, goal: 1, metric: "auto_level" },
+  { id: "upgrade-click", title: "Сильный палец", description: "Прокачай силу клика до 5", reward: 500, goal: 5, metric: "click_power" }
+];
+
+app.get("/api/tasks", async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM players WHERE telegram_id = $1",
+      [req.player.telegram_id]
+    );
+    const player = result.rows[0] || req.player;
+    const claimed = await pool.query(
+      "SELECT task_id FROM player_task_claims WHERE telegram_id = $1 AND claim_date = CURRENT_DATE",
+      [req.player.telegram_id]
+    );
+    const claimedIds = new Set(claimed.rows.map(row => row.task_id));
+    const tasks = DAILY_TASKS.map(task => ({
+      ...task,
+      progress: Math.min(Number(player[task.metric] || 0), task.goal),
+      completed: Number(player[task.metric] || 0) >= task.goal,
+      claimed: claimedIds.has(task.id)
+    }));
+    const achievements = [
+      { id: "first-cookie", title: "Первая печенька", description: "Заработай 1 000 печенек", goal: 1000, progress: Number(player.total_earned || 0), unlocked: Number(player.total_earned || 0) >= 1000 },
+      { id: "cookie-king", title: "Король печенек", description: "Заработай 100 000 печенек", goal: 100000, progress: Number(player.total_earned || 0), unlocked: Number(player.total_earned || 0) >= 100000 },
+      { id: "auto-master", title: "Повелитель автоматики", description: "Достигни 5 уровня автокликера", goal: 5, progress: Number(player.auto_level || 0), unlocked: Number(player.auto_level || 0) >= 5 },
+      { id: "click-master", title: "Мощный клик", description: "Достигни силы клика 10", goal: 10, progress: Number(player.click_power || 1), unlocked: Number(player.click_power || 1) >= 10 }
+    ];
+    res.json({ ok: true, tasks, achievements });
+  } catch (error) { next(error); }
 });
 
-app.post("/api/tasks/claim", (req, res) => {
-  res.status(501).json({ error: "Задания пока не настроены" });
+app.post("/api/tasks/claim", async (req, res, next) => {
+  const taskId = String(req.body?.task_id || "");
+  const task = DAILY_TASKS.find(item => item.id === taskId);
+  if (!task) return res.status(400).json({ error: "Неизвестное задание" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query("SELECT * FROM players WHERE telegram_id = $1 FOR UPDATE", [req.player.telegram_id]);
+    const player = result.rows[0];
+    if (!player || Number(player[task.metric] || 0) < task.goal) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Задание ещё не выполнено" });
+    }
+    const already = await client.query(
+      "SELECT 1 FROM player_task_claims WHERE telegram_id = $1 AND task_id = $2 AND claim_date = CURRENT_DATE",
+      [req.player.telegram_id, task.id]
+    );
+    if (already.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Награда за это задание уже получена сегодня" });
+    }
+    await client.query(
+      "INSERT INTO player_task_claims (telegram_id, task_id, claim_date) VALUES ($1, $2, CURRENT_DATE)",
+      [req.player.telegram_id, task.id]
+    );
+    const updated = await client.query(
+      "UPDATE players SET balance = balance + $1, total_earned = total_earned + $1 WHERE telegram_id = $2 RETURNING *",
+      [task.reward, req.player.telegram_id]
+    );
+    await client.query("COMMIT");
+    res.json({ ok: true, reward: task.reward, player: publicPlayer(updated.rows[0]) });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error.code === "23505") return res.status(400).json({ error: "Награда уже получена сегодня" });
+    next(error);
+  } finally { client.release(); }
 });
 
 app.post("/api/minigame/start", (req, res) => {
@@ -487,6 +552,17 @@ async function start() {
       ELSE last_daily::timestamptz
     END
     WHERE last_daily IS NOT NULL AND last_daily_at IS NULL
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_task_claims (
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      claim_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (telegram_id, task_id, claim_date)
+    )
   `);
 
   await pool.query(`
