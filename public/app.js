@@ -386,6 +386,9 @@ async function claimDailyReward() {
    ВКЛАДКИ И СВАЙПЫ
 ========================= */
 
+// Делаем переключение вкладок доступным и другим модулям приложения.
+window.switchTab = switchTab;
+
 function switchTab(tabName, direction = 0) {
   if (!TABS.includes(tabName)) return;
 
@@ -726,8 +729,12 @@ function initEventHandlers() {
     button.addEventListener("click", () => buyUpgrade(button.dataset.upgrade));
   });
 
-  $$(".nav-button[data-tab]").forEach((button) => {
-    button.addEventListener("click", () => switchTab(button.dataset.tab));
+  // Делегирование кликов: навигация продолжит работать даже после обновления DOM.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest(".nav-button[data-tab]");
+    if (!button) return;
+    event.preventDefault();
+    switchTab(button.dataset.tab);
   });
 
   $("#daily-button")?.addEventListener("click", claimDailyReward);
