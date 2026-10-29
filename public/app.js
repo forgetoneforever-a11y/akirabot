@@ -730,58 +730,6 @@ function initEventHandlers() {
   });
 
   $("#daily-button")?.addEventListener("click", claimDailyReward);
-  $("#profile-form")?.addEventListener("submit", saveProfile);
-  $("#profile-reset-avatar")?.addEventListener("click", resetAvatar);
-
-  $("#profile-avatar-input")?.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 1024 * 1024) {
-      showToast("Изображение должно быть меньше 1 МБ");
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const preview = $("#profile-avatar");
-      if (preview) preview.src = dataUrl;
-    } catch (error) {
-      showToast(error.message);
-    }
-  });
-
-  $$("[data-open-game]").forEach((button) => {
-    button.addEventListener("click", () => openGameMenu(button.dataset.openGame));
-  });
-
-  $$("[data-game-mode]").forEach((button) => {
-    button.addEventListener("click", () => startSelectedGame(button.dataset.gameMode));
-  });
-
-  $("#start-game-button")?.addEventListener("click", () => {
-    startSelectedGame(state.gameMode);
-  });
-
-  $$("[data-back-games]").forEach((button) => {
-    button.addEventListener("click", () => {
-      $("#durak-game-panel")?.setAttribute("hidden", "");
-      $("#chess-game-panel")?.setAttribute("hidden", "");
-      $("#game-menu-panel")?.removeAttribute("hidden");
-    });
-  });
-
-  $("#chess-new-button")?.addEventListener("click", () => {
-    if (typeof window.startChessGame === "function") {
-      window.startChessGame({
-        game: "chess",
-        mode: state.gameMode,
-        difficulty: $("#game-difficulty")?.value || "easy",
-        chessColor: $("#chess-color")?.value || "white",
-      });
-    }
-  });
 }
 
 /* =========================
