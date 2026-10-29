@@ -842,28 +842,8 @@
       });
     }
 
-    const undoButton = $("#chess-undo-button");
-
-    if (undoButton) {
-      undoButton.addEventListener("click", (event) => {
-        event.preventDefault();
-        undoChessMove();
-      });
-    }
-
-    const newButton = $("#chess-new-button");
-
-    if (newButton) {
-      newButton.addEventListener("click", (event) => {
-        event.preventDefault();
-
-        startChessGame({
-          mode: state.mode,
-          difficulty: state.difficulty,
-          chessColor: state.playerColor === "w" ? "white" : "black",
-        });
-      });
-    }
+    // Undo/restart controls are handled centrally by games.js to avoid
+    // duplicate click listeners and applying an action twice.
   }
 
   window.startChessGame = startChessGame;
