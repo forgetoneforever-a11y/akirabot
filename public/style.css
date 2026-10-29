@@ -1742,3 +1742,110 @@ input:focus, textarea:focus, select:focus {
     to { opacity: 1; transform: translateY(0); }
   }
 }
+
+
+/* AKIRA compact glass UI polish */
+:root {
+  --akira-glass: rgba(22, 25, 43, .56);
+  --akira-glass-deep: rgba(13, 16, 29, .76);
+  --akira-glass-edge: rgba(213, 207, 255, .17);
+  --akira-pink: #ff4fba;
+  --akira-violet: #a985ff;
+}
+html, body { min-height: 100%; }
+body {
+  background:
+    radial-gradient(ellipse at 14% 0%, rgba(139, 78, 255, .17), transparent 39%),
+    radial-gradient(ellipse at 94% 16%, rgba(255, 76, 172, .10), transparent 34%),
+    linear-gradient(155deg, #090b14 0%, #14182a 54%, #0b0d17 100%);
+  background-attachment: fixed;
+}
+header, .app-header, .brand, .balance-card, .cookie-stage, .cookie-container,
+.upgrade-panel, .leaderboard, .profile-card, .theme-panel, .games-panel,
+.game-card, .game-board, .chess-container, .chess-panel, .game-history,
+.game-controls, .daily-reward-card, .section-card, .panel, .card,
+.modal-content, .settings-panel, .shop-panel, .top-card {
+  background-color: var(--akira-glass);
+  background-image: linear-gradient(140deg, rgba(255,255,255,.065), rgba(255,255,255,.012) 55%, rgba(177,125,255,.035));
+  border-color: var(--akira-glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.065), 0 12px 34px rgba(0,0,0,.19);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+/* Compact header: remove nested logo frames without affecting the avatar itself. */
+header, .app-header, .brand {
+  outline: none;
+}
+header .logo, .app-header .logo, .brand .logo,
+header .brand, .app-header .brand {
+  border-color: transparent;
+  box-shadow: none;
+  background-color: transparent;
+}
+/* The cookie/balance area should feel like glass, not solid cards. */
+.balance-card {
+  border-radius: 23px;
+  background-image: linear-gradient(115deg, rgba(137,116,190,.20), rgba(255,255,255,.035) 52%, rgba(255,75,176,.13));
+}
+.cookie-stage, .cookie-container {
+  border-radius: 24px;
+  background-image: radial-gradient(ellipse at center, rgba(164,133,255,.10), transparent 58%), linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+}
+/* One compact navigation row with a single clean outline. */
+.navbar, .bottom-nav, .navigation, .nav-bar, .nav-tabs, .tab-navigation {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid rgba(213,207,255,.18);
+  border-radius: 18px;
+  background: rgba(12,15,27,.66);
+  box-shadow: 0 10px 30px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.055);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+.navbar > *, .bottom-nav > *, .navigation > *, .nav-bar > *, .nav-tabs > *, .tab-navigation > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.nav-button, .tab-button {
+  min-width: 0;
+  padding: 8px 5px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.nav-button.active, .tab-button.active, button.active {
+  background: linear-gradient(135deg, rgba(169,117,255,.23), rgba(255,79,186,.10));
+  border-color: rgba(177,145,255,.52);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 0 14px rgba(157,104,255,.10);
+}
+/* Smaller shop cards and action buttons. */
+.upgrade-panel { padding: clamp(12px, 2.5vw, 20px); }
+.upgrade-panel .upgrade-item, .upgrade-panel .upgrade-card,
+.upgrade-panel .shop-item, .shop-panel .upgrade-item, .shop-panel .shop-item {
+  border-radius: 17px;
+  padding: 12px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(213,207,255,.13);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+}
+.buy-button, .upgrade-panel button, .shop-panel button {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 12px;
+}
+button, .nav-button, .buy-button {
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+button:active, .nav-button:active, .buy-button:active { transform: scale(.975); }
+@media (max-width: 520px) {
+  .navbar, .bottom-nav, .navigation, .nav-bar, .nav-tabs, .tab-navigation { gap: 2px; padding: 3px; }
+  .nav-button, .tab-button { padding: 7px 2px; font-size: 11px; }
+  .upgrade-panel .upgrade-item, .upgrade-panel .upgrade-card,
+  .upgrade-panel .shop-item, .shop-panel .upgrade-item, .shop-panel .shop-item { padding: 10px; }
+}
