@@ -302,6 +302,16 @@ async function equipSkin(skinId){
  catch(error){showToast(error.message||"Не удалось надеть скин");}
 }
 
+async function performPrestige(){
+ const player=getPlayer();const required=Math.floor(1000000*Math.pow(2,Number(player.prestige_level||0)));
+ if(Number(player.balance||0)<required){showToast("Пока недостаточно печенек");return;}
+ if(!window.confirm("Переродиться? Баланс и уровни улучшений сбросятся, а ранг, общий заработок и скины сохранятся."))return;
+ const button=$("#prestige-button");if(button)button.disabled=true;
+ try{const data=await api("/prestige",{method:"POST",body:{}});renderState({player:data.player});showToast(data.message+" Получено 💠 "+data.crystals_awarded);loadCollection();}
+ catch(error){showToast(error.message||"Не удалось переродиться");}
+ finally{if(button)button.disabled=false;}
+}
+
 function renderState(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Сервер вернул пустое состояние игры");
@@ -354,6 +364,13 @@ function renderState(data) {
 
   updateUpgradePrices();
   updateDailyRewardButton();
+  setText("#prestige-level", player.prestige_level ?? 0);
+  setText("#prestige-crystals", formatNumber(player.prestige_crystals ?? 0));
+  setText("#prestige-multiplier", "×" + Number(player.prestige_multiplier || 1).toFixed(2));
+  const prestigeRequired = Math.floor(1000000 * Math.pow(2, Number(player.prestige_level || 0)));
+  setText("#prestige-requirement", "Нужно накопить " + formatNumber(prestigeRequired) + " печенек на балансе. Награда: " + Math.max(1, Number(player.prestige_level || 0) + 1) + " 💠");
+  const prestigeButton = $("#prestige-button");
+  if (prestigeButton) { prestigeButton.disabled = Number(player.balance || 0) < prestigeRequired; prestigeButton.textContent = Number(player.balance || 0) < prestigeRequired ? "Нужно ещё " + formatNumber(prestigeRequired - Number(player.balance || 0)) + " 🍪" : "✨ Переродиться"; }
   if (state.currentTab === "shop") loadCollection();
   loadTasks();
 
@@ -889,6 +906,7 @@ function initEventHandlers() {
   });
 
   $("#daily-button")?.addEventListener("click", claimDailyReward);
+  $("#prestige-button")?.addEventListener("click", performPrestige);
   $("#daily-shop-button")?.addEventListener("click", () => switchTab("profile"));
 }
 
