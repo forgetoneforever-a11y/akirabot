@@ -739,6 +739,7 @@ function initEventHandlers() {
   });
 
   $("#daily-button")?.addEventListener("click", claimDailyReward);
+  $("#daily-shop-button")?.addEventListener("click", () => switchTab("profile"));
 }
 
 /* =========================
