@@ -1,70 +1,76 @@
+
 (() => {
   "use strict";
 
-  const API = "/api";
-  const $ = (selector) => document.querySelector(selector);
-  const $$ = (selector) => [...document.querySelectorAll(selector)];
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) =>
+    Array.from(root.querySelectorAll(selector));
 
-  let player = null;
-  let busy = false;
-  let refreshTimer = null;
+  const state = {
+    player: {},
+    busy: false,
+    lastClick: 0,
+    theme: localStorage.getItem("akira-theme") || "crimson",
+    activeTab: "shop"
+  };
 
-  const tasks = [];
-  const leaderboard = [];
+  const themeNames = {
+    crimson: "Crimson",
+    midnight: "Midnight",
+    ocean: "Ocean",
+    emerald: "Emerald"
+  };
 
-  // -----------------------------
-  // TELEGRAM
-  // -----------------------------
+  function showToast(message) {
+    const toast = $("#toast");
+    if (!toast) {
+      console.log("[AKIRA]", message);
+      return;
+    }
 
-  const tg = window.Telegram?.WebApp;
+    toast.textContent = String(message);
+    toast.hidden = false;
+    toast.classList.add("show");
 
-  if (tg) {
-    tg.ready();
-    tg.expand();
-
-    try {
-      tg.setHeaderColor("#09090d");
-      tg.setBackgroundColor("#09090d");
-    } catch (_) {}
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => {
+      toast.classList.remove("show");
+      toast.hidden = true;
+    }, 2600);
   }
 
-  function haptic(type = "light") {
-    try {
-      if (type === "success") {
-        tg?.HapticFeedback?.notificationOccurred("success");
-      } else {
-        tg?.HapticFeedback?.impactOccurred(type);
-      }
-    } catch (_) {}
+  function getInitData() {
+    return window.Telegram?.WebApp?.initData || "";
   }
 
-  // -----------------------------
-  // API
-  // -----------------------------
-
-  async function api(path, options = {}) {
+  async function api(url, options = {}) {
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {})
     };
 
-    if (tg?.initData) {
-      headers["X-Telegram-Init-Data"] = tg.initData;
+    const initData = getInitData();
+    if (initData) {
+      headers["X-Telegram-Init-Data"] = initData;
     }
 
-    const response = await fetch(API + path, {
+    const response = await fetch(url, {
       ...options,
       headers,
       cache: "no-store"
     });
 
-    const text = await response.text();
+    const raw = await response.text();
     let data = {};
 
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (_) {
-      throw new Error("Сервер вернул некорректный ответ");
+    if (raw) {
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          `Сервер вернул не JSON (HTTP ${response.status}). Проверь API на Render.`
+        );
+      }
     }
 
     if (!response.ok) {
@@ -73,546 +79,495 @@
       );
     }
 
+    if (data && data.error) {
+      throw new Error(data.error);
+    }
+
     return data;
   }
 
-  function showToast(message, type = "info") {
-    const toast = $("#toast");
-    if (!toast) {
-      console.log(message);
-      return;
+  function firstValue(object, keys, fallback = 0) {
+    for (const key of keys) {
+      if (object && object[key] !== undefined && object[key] !== null) {
+        return object[key];
+      }
+    }
+    return fallback;
+  }
+
+  function playerFromResponse(data) {
+    if (!data || typeof data !== "object") return null;
+
+    if (data.player && typeof data.player === "object") return data.player;
+    if (data.state && typeof data.state === "object") return data.state;
+
+    if (
+      "balance" in data ||
+      "coins" in data ||
+      "click_power" in data ||
+      "total_earned" in data
+    ) {
+      return data;
     }
 
-    toast.textContent = message;
-    toast.hidden = false;
-    toast.dataset.type = type;
-
-    clearTimeout(showToast.timer);
-
-    requestAnimationFrame(() => {
-      toast.classList.add("show");
-    });
-
-    showToast.timer = setTimeout(() => {
-      toast.classList.remove("show");
-
-      setTimeout(() => {
-        toast.hidden = true;
-      }, 250);
-    }, 2400);
+    return null;
   }
 
-  function number(value) {
-    return Math.floor(Number(value) || 0).toLocaleString("ru-RU");
+  function formatNumber(value) {
+    const number = Number(value);
+    return (Number.isFinite(number) ? number : 0).toLocaleString("ru-RU");
   }
 
-  function setText(selector, value) {
-    $$(selector).forEach((element) => {
-      element.textContent = value;
-    });
+  function getBalance() {
+    return Number(firstValue(state.player, [
+      "balance", "coins", "money"
+    ], 0));
   }
 
-  // -----------------------------
-  // PLAYER / BALANCE
-  // -----------------------------
+  function getEarned() {
+    return Number(firstValue(state.player, [
+      "total_earned", "totalEarned", "earned"
+    ], 0));
+  }
 
-  function getClickReward() {
-    if (!player) return 1;
+  function getClickPower() {
+    const base = Number(firstValue(state.player, [
+      "click_power", "clickPower"
+    ], 1));
 
-    if (player.clickReward != null) {
-      return Number(player.clickReward);
-    }
+    const multiplier = Number(firstValue(state.player, [
+      "multiplier_level", "multiplierLevel"
+    ], 0));
 
-    return (
-      Number(player.click_power || 1) *
-      Math.pow(2, Number(player.multiplier_level || 0))
-    );
+    return Math.max(1, base * Math.pow(2, multiplier));
   }
 
   function getAutoPower() {
-    if (!player) return 0;
+    return Number(firstValue(state.player, [
+      "auto_power", "autoPower", "auto_level", "autoLevel"
+    ], 0));
+  }
 
-    if (player.autoPowerPerSecond != null) {
-      return Number(player.autoPowerPerSecond);
+  function renderState() {
+    const player = state.player;
+
+    const balance = getBalance();
+    const earned = getEarned();
+    const clickPower = getClickPower();
+    const autoPower = getAutoPower();
+
+    const balanceEl = $("#balance");
+    const earnedEl = $("#total-earned");
+    const clickEl = $("#click-power");
+    const autoEl = $("#auto-power");
+
+    if (balanceEl) balanceEl.textContent = formatNumber(balance);
+    if (earnedEl) earnedEl.textContent = formatNumber(earned);
+    if (clickEl) clickEl.textContent = `+${formatNumber(clickPower)} за клик`;
+    if (autoEl) autoEl.textContent = `${formatNumber(autoPower)}/сек авто`;
+
+    const level = Number(firstValue(player, ["level"], 1));
+    const levelEl = $("#level");
+    if (levelEl) levelEl.textContent = `Уровень ${level}`;
+
+    const name = firstValue(player, [
+      "name", "username", "first_name"
+    ], "Игрок");
+
+    const nameEl = $("#player-name");
+    if (nameEl) nameEl.textContent = name;
+
+    const profileBalance = $("#profile-balance");
+    const profileEarned = $("#profile-earned");
+    const profileClick = $("#profile-click");
+    const profileAuto = $("#profile-auto");
+
+    if (profileBalance) profileBalance.textContent = formatNumber(balance);
+    if (profileEarned) profileEarned.textContent = formatNumber(earned);
+    if (profileClick) profileClick.textContent = formatNumber(clickPower);
+    if (profileAuto) profileAuto.textContent = formatNumber(autoPower);
+
+    const fingerPrice = $("#finger-price");
+    const autoPrice = $("#auto-price");
+    const multiplierPrice = $("#multiplier-price");
+
+    if (fingerPrice) {
+      fingerPrice.textContent = formatNumber(firstValue(player, [
+        "click_price", "finger_price", "next_click_price"
+      ], 82));
     }
 
-    return (
-      Number(player.auto_level || 0) *
-      Math.pow(2, Number(player.multiplier_level || 0))
-    );
-  }
-
-  function renderPlayer() {
-    if (!player) return;
-
-    const balance = number(player.coins);
-    const earned = number(player.total_earned);
-    const click = number(getClickReward());
-    const auto = number(getAutoPower());
-
-    setText("#balance", balance);
-    setText("#total-earned", earned);
-    setText("#level", number(player.level || 1));
-
-    setText("#click-power", click);
-    setText("#auto-power", auto);
-
-    setText("#player-name", player.name || "Игрок");
-    setText("#profile-balance", balance);
-    setText("#profile-earned", earned);
-    setText("#profile-click", click);
-    setText("#profile-auto", `${auto}/с`);
-
-    renderUpgradePrices();
-  }
-
-  // -----------------------------
-  // UPGRADE PRICES
-  // -----------------------------
-
-  const upgradeConfig = {
-    click: {
-      base: 50,
-      factor: 1.65,
-      max: 100,
-      level: () => Number(player?.click_power || 1),
-      priceElement: "#finger-price"
-    },
-    auto: {
-      base: 250,
-      factor: 1.8,
-      max: 50,
-      level: () => Number(player?.auto_level || 0),
-      priceElement: "#auto-price"
-    },
-    multiplier: {
-      base: 1000,
-      factor: 2.1,
-      max: 25,
-      level: () => Number(player?.multiplier_level || 0),
-      priceElement: "#multiplier-price"
+    if (autoPrice) {
+      autoPrice.textContent = formatNumber(firstValue(player, [
+        "auto_price", "next_auto_price"
+      ], 250));
     }
-  };
 
-  function upgradeCost(type) {
-    const config = upgradeConfig[type];
-    if (!config) return Infinity;
+    if (multiplierPrice) {
+      multiplierPrice.textContent = formatNumber(firstValue(player, [
+        "multiplier_price", "next_multiplier_price"
+      ], 1000));
+    }
 
-    return Math.floor(
-      config.base * Math.pow(config.factor, config.level())
-    );
+    updateUpgradeButtons();
   }
 
-  function renderUpgradePrices() {
-    if (!player) return;
+  function updateUpgradeButtons() {
+    const balance = getBalance();
 
-    Object.entries(upgradeConfig).forEach(([type, config]) => {
-      const level = config.level();
-      const maxed = level >= config.max;
-      const cost = upgradeCost(type);
+    const prices = {
+      click: Number(firstValue(state.player, [
+        "click_price", "finger_price", "next_click_price"
+      ], 82)),
+      auto: Number(firstValue(state.player, [
+        "auto_price", "next_auto_price"
+      ], 250)),
+      multiplier: Number(firstValue(state.player, [
+        "multiplier_price", "next_multiplier_price"
+      ], 1000))
+    };
 
-      setText(
-        config.priceElement,
-        maxed ? "МАКС." : number(cost)
-      );
+    $$("[data-upgrade]").forEach(button => {
+      const type = button.dataset.upgrade;
+      if (!(type in prices)) return;
 
-      $$(`[data-upgrade="${type}"]`).forEach((button) => {
-        button.disabled =
-          busy ||
-          maxed ||
-          Number(player.coins || 0) < cost;
-
-        button.classList.toggle("is-max", maxed);
-      });
+      const price = prices[type];
+      button.disabled = state.busy || balance < price;
     });
   }
 
-  // -----------------------------
-  // FLOATING +COINS
-  // -----------------------------
+  async function loadState(options = {}) {
+    try {
+      const data = await api("/api/state");
 
-  function showFloatingCoins(element, amount) {
-    if (!element) return;
+      const player = playerFromResponse(data);
+      if (player) {
+        state.player = { ...state.player, ...player };
+        renderState();
+      }
 
-    const rect = element.getBoundingClientRect();
-    const popup = document.createElement("div");
+      if (Array.isArray(data.tasks)) {
+        renderTasks(data.tasks);
+      }
 
-    popup.className = "click-popup";
-    popup.textContent = `+${number(amount)}`;
+      if (!options.silent) {
+        console.log("[AKIRA] Состояние загружено");
+      }
 
-    popup.style.left = `${rect.left + rect.width / 2}px`;
-    popup.style.top = `${rect.top + rect.height / 2}px`;
-
-    document.body.appendChild(popup);
-
-    requestAnimationFrame(() => {
-      popup.classList.add("animate");
-    });
-
-    setTimeout(() => popup.remove(), 1000);
+      return data;
+    } catch (error) {
+      console.error("[AKIRA] Ошибка загрузки состояния:", error);
+      if (!options.silent) showToast(error.message);
+      throw error;
+    }
   }
 
-  // -----------------------------
-  // CLICK COOKIE
-  // -----------------------------
+  function renderTasks(tasks) {
+    const container = $("#tasks");
+    if (!container) return;
 
-  async function clickCookie() {
-    if (busy) return;
-
-    const button = $("#cookie-button");
-    if (!button) {
-      showToast("Не найдена кнопка печеньки", "error");
+    if (!tasks.length) {
+      container.innerHTML = "";
       return;
     }
 
-    busy = true;
-    button.classList.add("loading");
-    renderUpgradePrices();
+    container.innerHTML = tasks.map(task => {
+      const title = escapeHtml(task.title || task.name || "Задание");
+      const reward = formatNumber(task.reward || 0);
+
+      return `
+        <div class="task-item">
+          <span>${title}</span>
+          <span>+${reward} 🍪</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+
+  async function clickCookie() {
+    const now = Date.now();
+
+    if (state.busy || now - state.lastClick < 80) return;
+    state.lastClick = now;
+
+    const button = $("#cookie-button");
+    if (button) {
+      button.classList.remove("click-animation");
+      void button.offsetWidth;
+      button.classList.add("click-animation");
+    }
 
     try {
-      const data = await api("/click", {
+      const data = await api("/api/click", {
         method: "POST",
         body: JSON.stringify({})
       });
 
-      if (data.player) {
-        player = data.player;
-      } else if (data.state?.player) {
-        player = data.state.player;
-      } else if (player) {
-        const reward = Number(
-          data.reward ?? data.earned ?? data.amount ?? getClickReward()
-        );
-
-        player.coins = Number(player.coins || 0) + reward;
-        player.total_earned =
-          Number(player.total_earned || 0) + reward;
-
-        player.total_clicks =
-          Number(player.total_clicks || 0) + 1;
+      const player = playerFromResponse(data);
+      if (player) {
+        state.player = { ...state.player, ...player };
+        renderState();
+      } else {
+        await loadState({ silent: true });
       }
 
-      const reward = Number(
-        data.reward ??
-        data.earned ??
-        data.amount ??
-        data.clickReward ??
-        getClickReward()
-      );
-
-      renderPlayer();
-      showFloatingCoins(button, reward);
-      haptic("light");
+      if (data.reward !== undefined && !player) {
+        showFloatingReward(data.reward);
+      }
     } catch (error) {
-      console.error("Click error:", error);
-      showToast(error.message || "Ошибка клика", "error");
-    } finally {
-      busy = false;
-      button.classList.remove("loading");
-      renderUpgradePrices();
+      console.error("[AKIRA] Ошибка клика:", error);
+      showToast(error.message);
     }
   }
 
-  // -----------------------------
-  // UPGRADES
-  // -----------------------------
+  function showFloatingReward(reward) {
+    const area = $("#click-area");
+    if (!area) return;
 
-  async function buyUpgrade(type, button) {
-    if (busy) return;
+    const el = document.createElement("span");
+    el.className = "floating-reward";
+    el.textContent = `+${formatNumber(reward)}`;
+    area.appendChild(el);
 
-    if (!upgradeConfig[type]) {
-      showToast("Неизвестное улучшение", "error");
+    setTimeout(() => el.remove(), 900);
+  }
+
+  async function buyUpgrade(type) {
+    if (state.busy) return;
+
+    const allowed = ["click", "auto", "multiplier"];
+    if (!allowed.includes(type)) {
+      showToast("Неизвестное улучшение");
       return;
     }
 
-    busy = true;
-    if (button) button.classList.add("loading");
-
-    renderUpgradePrices();
+    state.busy = true;
+    updateUpgradeButtons();
 
     try {
-      const data = await api("/upgrades", {
+      // В сервере AKIRA покупка реализована через /api/buy.
+      const data = await api("/api/buy", {
         method: "POST",
-        body: JSON.stringify({ type })
+        body: JSON.stringify({
+          upgrade: type,
+          type
+        })
       });
 
-      if (data.player) {
-        player = data.player;
-      } else if (data.state?.player) {
-        player = data.state.player;
+      const player = playerFromResponse(data);
+      if (player) {
+        state.player = { ...state.player, ...player };
+        renderState();
+      } else {
+        await loadState({ silent: true });
       }
 
-      await loadState();
-
-      showToast(data.message || "Улучшение куплено!", "success");
-      haptic("success");
+      showToast(data.message || "Улучшение куплено!");
     } catch (error) {
-      console.error("Upgrade error:", error);
-      showToast(error.message || "Не удалось купить улучшение", "error");
+      console.error("[AKIRA] Ошибка покупки:", error);
+      showToast(error.message || "Не удалось купить улучшение");
     } finally {
-      busy = false;
-      if (button) button.classList.remove("loading");
-      renderPlayer();
+      state.busy = false;
+      updateUpgradeButtons();
     }
   }
 
-  // -----------------------------
-  // DAILY REWARD
-  // -----------------------------
-
   async function claimDaily() {
-    if (busy) return;
-
     const button = $("#daily-button");
-
-    busy = true;
     if (button) button.disabled = true;
 
     try {
-      const data = await api("/daily", {
+      const data = await api("/api/daily", {
         method: "POST",
         body: JSON.stringify({})
       });
 
-      if (data.player) player = data.player;
+      const player = playerFromResponse(data);
+      if (player) {
+        state.player = { ...state.player, ...player };
+        renderState();
+      } else {
+        await loadState({ silent: true });
+      }
 
-      await loadState();
-
-      const reward = data.reward ?? data.amount;
-
-      showToast(
-        reward != null
-          ? `Получено +${number(reward)} монет!`
-          : data.message || "Награда получена!",
-        "success"
-      );
-
-      haptic("success");
+      showToast(data.message || "Ежедневная награда получена!");
     } catch (error) {
-      showToast(error.message || "Не удалось получить награду", "error");
+      console.error("[AKIRA] Ошибка ежедневной награды:", error);
+      showToast(error.message);
     } finally {
-      busy = false;
       if (button) button.disabled = false;
-      renderUpgradePrices();
     }
   }
-
-  // -----------------------------
-  // TABS
-  // -----------------------------
-
-  function openTab(name) {
-    const target = $(`#tab-${name}`);
-
-    if (!target) {
-      showToast("Раздел не найден", "error");
-      return;
-    }
-
-    $$(".nav-button").forEach((button) => {
-      button.classList.toggle(
-        "active",
-        button.dataset.tab === name
-      );
-    });
-
-    $$(".tab-content").forEach((section) => {
-      section.hidden = section.id !== `tab-${name}`;
-    });
-
-    haptic("light");
-
-    if (name === "top") loadLeaderboard();
-    if (name === "profile") loadState();
-  }
-
-  // -----------------------------
-  // THEMES
-  // -----------------------------
-
-  function setTheme(theme) {
-    const allowed = ["crimson", "midnight", "ocean", "emerald"];
-
-    if (!allowed.includes(theme)) return;
-
-    document.body.dataset.theme = theme;
-
-    $$(".theme-option").forEach((button) => {
-      button.classList.toggle(
-        "active",
-        button.dataset.theme === theme
-      );
-    });
-
-    try {
-      localStorage.setItem("akira-theme", theme);
-    } catch (_) {}
-
-    haptic("light");
-    showToast(`Тема ${theme} применена`, "success");
-  }
-
-  function initTheme() {
-    let savedTheme = "crimson";
-
-    try {
-      savedTheme = localStorage.getItem("akira-theme") || "crimson";
-    } catch (_) {}
-
-    setTheme(savedTheme);
-  }
-
-  // -----------------------------
-  // LEADERBOARD
-  // -----------------------------
 
   async function loadLeaderboard() {
     const container = $("#leaderboard");
     if (!container) return;
 
+    container.innerHTML = '<p class="loading">Загрузка рейтинга...</p>';
+
     try {
-      const data = await api("/leaderboard");
+      const data = await api("/api/leaderboard");
 
-      const entries = Array.isArray(data)
+      const players = Array.isArray(data)
         ? data
-        : data.leaderboard || data.players || [];
+        : data.players || data.leaderboard || data.top || [];
 
-      container.replaceChildren();
-
-      if (!entries.length) {
-        const empty = document.createElement("p");
-        empty.className = "section-description";
-        empty.textContent = "Пока нет игроков в рейтинге";
-        container.appendChild(empty);
+      if (!players.length) {
+        container.innerHTML = "<p>Пока нет игроков в рейтинге.</p>";
         return;
       }
 
-      entries.forEach((entry, index) => {
-        const row = document.createElement("div");
-        row.className = "leaderboard-row";
+      container.innerHTML = players.map((player, index) => {
+        const rank = player.rank || index + 1;
+        const name = escapeHtml(
+          player.name || player.username || player.first_name || "Игрок"
+        );
+        const score = Number(firstValue(player, [
+          "score", "balance", "coins", "total_earned"
+        ], 0));
 
-        const rank = document.createElement("span");
-        rank.className = "leaderboard-rank";
-        rank.textContent = `#${index + 1}`;
-
-        const name = document.createElement("span");
-        name.className = "leaderboard-name";
-        name.textContent = entry.name || `Игрок ${index + 1}`;
-
-        const coins = document.createElement("span");
-        coins.className = "leaderboard-coins";
-        coins.textContent = number(entry.coins);
-
-        row.append(rank, name, coins);
-        container.appendChild(row);
-      });
+        return `
+          <div class="leaderboard-item">
+            <span class="leaderboard-rank">#${rank}</span>
+            <strong class="leaderboard-name">${name}</strong>
+            <span class="leaderboard-score">
+              ${formatNumber(score)} 🍪
+            </span>
+          </div>
+        `;
+      }).join("");
     } catch (error) {
-      console.error("Leaderboard error:", error);
-      container.textContent = "Не удалось загрузить рейтинг";
+      console.error("[AKIRA] Ошибка рейтинга:", error);
+      container.innerHTML =
+        `<p class="error">${escapeHtml(error.message)}</p>`;
     }
   }
 
-  // -----------------------------
-  // STATE
-  // -----------------------------
+  function switchTab(tabName) {
+    const panel = $(`#tab-${tabName}`);
+    if (!panel) {
+      console.warn(`[AKIRA] Не найдена вкладка tab-${tabName}`);
+      showToast("Вкладка не найдена в HTML");
+      return;
+    }
 
-  async function loadState() {
-    const data = await api("/state");
+    state.activeTab = tabName;
 
-    player = data.player || data;
+    $$(".nav-button").forEach(button => {
+      const active = button.dataset.tab === tabName;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
 
-    renderPlayer();
+    ["shop", "top", "profile", "themes"].forEach(name => {
+      const tabPanel = $(`#tab-${name}`);
+      if (!tabPanel) return;
 
-    return data;
+      const active = name === tabName;
+      tabPanel.hidden = !active;
+      tabPanel.classList.toggle("active", active);
+      tabPanel.setAttribute("aria-hidden", String(!active));
+    });
+
+    if (tabName === "top") {
+      loadLeaderboard();
+    }
+
+    if (tabName === "profile") {
+      loadState({ silent: true }).catch(() => {});
+    }
   }
 
-  // -----------------------------
-  // EVENT HANDLERS
-  // -----------------------------
+  function applyTheme(theme) {
+    if (!themeNames[theme]) theme = "crimson";
+
+    state.theme = theme;
+    document.body.dataset.theme = theme;
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("akira-theme", theme);
+
+    $$(".theme-option").forEach(button => {
+      const active = button.dataset.theme === theme;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
 
   function bindEvents() {
-    // Печенька
-    $("#cookie-button")?.addEventListener("click", clickCookie);
+    const cookie = $("#cookie-button");
+    if (cookie) {
+      cookie.addEventListener("click", clickCookie);
+    }
 
-    // Навигация
-    $$(".nav-button[data-tab]").forEach((button) => {
+    $$(".nav-button[data-tab]").forEach(button => {
       button.addEventListener("click", () => {
-        openTab(button.dataset.tab);
+        switchTab(button.dataset.tab);
       });
     });
 
-    // Улучшения
-    $$("[data-upgrade]").forEach((button) => {
+    $$("[data-upgrade]").forEach(button => {
       button.addEventListener("click", () => {
-        buyUpgrade(button.dataset.upgrade, button);
+        buyUpgrade(button.dataset.upgrade);
       });
     });
 
-    // Ежедневная награда
-    $("#daily-button")?.addEventListener("click", claimDaily);
+    const daily = $("#daily-button");
+    if (daily) daily.addEventListener("click", claimDaily);
 
-    // Темы
-    $$(".theme-option[data-theme]").forEach((button) => {
+    $$(".theme-option[data-theme]").forEach(button => {
       button.addEventListener("click", () => {
-        setTheme(button.dataset.theme);
+        applyTheme(button.dataset.theme);
+        showToast(`Тема «${themeNames[button.dataset.theme]}» выбрана`);
       });
-    });
-
-    // Обновление после возвращения в приложение
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) {
-        loadState().catch((error) => {
-          console.error("Refresh error:", error);
-        });
-
-        const activeTab = $(".nav-button.active")?.dataset.tab;
-
-        if (activeTab === "top") {
-          loadLeaderboard();
-        }
-      }
     });
   }
-
-  // -----------------------------
-  // START
-  // -----------------------------
 
   async function init() {
-    bindEvents();
-    initTheme();
-
     try {
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor?.("#09080d");
+        tg.setBackgroundColor?.("#09080d");
+      }
+
+      applyTheme(state.theme);
+      bindEvents();
+
+      // Показываем магазин сразу, даже если сервер загружается медленно.
+      switchTab("shop");
+
       await loadState();
-
-      // Не запускаем повторные интервалы.
-      clearInterval(refreshTimer);
-
-      refreshTimer = setInterval(() => {
-        if (!document.hidden) {
-          loadState().catch((error) => {
-            console.error("Auto refresh error:", error);
-          });
-        }
-      }, 15000);
+      await loadLeaderboard().catch(() => {});
     } catch (error) {
-      console.error("AKIRA initialization error:", error);
-      showToast(
-        error.message || "Не удалось подключиться к серверу",
-        "error"
-      );
+      console.error("[AKIRA] Ошибка запуска:", error);
+      showToast(error.message || "Не удалось загрузить игру");
     }
+
+    // Обновляем данные, но не прерываем игру, если сервер временно недоступен.
+    setInterval(() => {
+      loadState({ silent: true }).catch(() => {});
+    }, 15000);
   }
 
-  // Функции для проверки из консоли браузера.
   window.AKIRA = {
+    api,
     loadState,
     loadLeaderboard,
-    clickCookie,
     buyUpgrade,
-    claimDaily,
-    openTab,
-    setTheme
+    switchTab,
+    applyTheme
   };
 
   if (document.readyState === "loading") {
