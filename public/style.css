@@ -2257,3 +2257,33 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   #tab-home .click-stats { margin:0 0 5px !important; }
   #tab-home .cookie-stage { overflow:hidden; }
 }
+
+
+/* Keep the six-tab navigation pinned to the bottom of the Telegram viewport */
+@media (max-width: 520px) {
+  #app .navbar {
+    position: fixed !important;
+    top: auto !important;
+    bottom: max(7px, env(safe-area-inset-bottom)) !important;
+    left: 7px !important;
+    right: 7px !important;
+    width: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 1000 !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 2px !important;
+    padding: 3px !important;
+    box-sizing: border-box !important;
+  }
+  #app { padding-bottom: calc(58px + env(safe-area-inset-bottom)) !important; }
+  #app .navbar .nav-button {
+    min-width: 0 !important;
+    min-height: 38px !important;
+    padding: 3px 0 !important;
+    gap: 2px !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+  }
+  #app .navbar .nav-button > span:first-child { font-size: 14px !important; line-height: 1 !important; }
+}
