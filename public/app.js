@@ -400,7 +400,7 @@ function switchTab(tabName, direction = 0) {
   state.currentTab = tabName;
   document.body.classList.toggle("games-fullscreen", tabName === "games");
 
-  $(".nav-button[data-tab]").forEach((button) => {
+  $$(".nav-button[data-tab]").forEach((button) => {
     const active = button.dataset.tab === tabName;
     button.classList.toggle("active", active);
     button.setAttribute("aria-current", active ? "page" : "false");
