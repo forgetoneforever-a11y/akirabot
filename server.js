@@ -7,10 +7,12 @@ const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 const BOT_TOKEN =
   process.env.BOT_TOKEN ||
   process.env.TELEGRAM_BOT_TOKEN ||
   "";
+
 const REQUIRED_CHANNEL = process.env.REQUIRED_CHANNEL || "";
 const CHANNEL_URL = process.env.REQUIRED_CHANNEL_URL || "";
 
@@ -53,6 +55,10 @@ const UPGRADES = {
   }
 };
 
+// ========================================
+// УРОВЕНЬ И ОПЫТ
+// ========================================
+
 function levelFromXp(xp) {
   let level = 1;
   let remaining = Math.max(0, Number(xp) || 0);
@@ -69,13 +75,25 @@ function levelFromXp(xp) {
   };
 }
 
+// ========================================
+// ДАННЫЕ ИГРОКА
+// ========================================
+
 function safePlayer(p) {
   if (!p) return null;
 
   const xp = Number(p.xp || 0);
   const progression = levelFromXp(xp);
-  const clickPower = Math.max(1, Number(p.click_power || 1));
-  const multiplierLevel = Number(p.multiplier_level || 0);
+
+  const clickPower = Math.max(
+    1,
+    Number(p.click_power || 1)
+  );
+
+  const multiplierLevel = Number(
+    p.multiplier_level || 0
+  );
+
   const autoLevel = Number(p.auto_level || 0);
 
   return {
@@ -83,21 +101,32 @@ function safePlayer(p) {
     name: p.name || "Игрок",
     coins: Number(p.coins || 0),
     totalEarned: Number(p.total_earned || 0),
+
     clickPower,
     power: clickPower,
+
     autoLevel,
+    autoPowerPerSecond:
+      autoLevel * Math.pow(2, multiplierLevel),
+
     multiplierLevel,
     multiplier: Math.pow(2, multiplierLevel),
+
     streak: Number(p.streak || 0),
+
     xp,
     level: progression.level,
     levelXp: progression.currentXp,
     nextLevelXp: progression.nextXp,
+
     totalClicks: Number(p.total_clicks || 0)
   };
 }
 
-// Проверка подлинности Telegram WebApp initData
+// ========================================
+// TELEGRAM INIT DATA
+// ========================================
+
 function verifyTelegramInitData(initData) {
   if (!BOT_TOKEN || !initData) return null;
 
@@ -111,10 +140,17 @@ function verifyTelegramInitData(initData) {
 
     params.delete("hash");
 
-    const authDate = Number(params.get("auth_date") || 0);
+    const authDate = Number(
+      params.get("auth_date") || 0
+    );
+
     const now = Math.floor(Date.now() / 1000);
 
-    if (!authDate || now - authDate > 86400 || authDate - now > 60) {
+    if (
+      !authDate ||
+      now - authDate > 86400 ||
+      authDate - now > 60
+    ) {
       return null;
     }
 
@@ -138,12 +174,17 @@ function verifyTelegramInitData(initData) {
 
     if (
       suppliedBuffer.length !== calculatedBuffer.length ||
-      !crypto.timingSafeEqual(suppliedBuffer, calculatedBuffer)
+      !crypto.timingSafeEqual(
+        suppliedBuffer,
+        calculatedBuffer
+      )
     ) {
       return null;
     }
 
-    const user = JSON.parse(params.get("user") || "{}");
+    const user = JSON.parse(
+      params.get("user") || "{}"
+    );
 
     return user.id ? user : null;
   } catch {
@@ -151,26 +192,135 @@ function verifyTelegramInitData(initData) {
   }
 }
 
-// Авторизация игрока
+// ========================================
+// СЕРВЕРНЫЙ АВТОКЛИКЕР
+// ========================================
+
+// 1 уровень автокликера = 1 монета в секунду.
+// Множитель увеличивает автодоход.
+// Максимальное офлайн-начисление за один расчёт — 24 часа.
+
+async function accrueAutoEarnings(playerId) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const selected = await client.query(
+      `SELECT *
+       FROM players
+       WHERE telegram_id = $1
+       FOR UPDATE`,
+      [String(playerId)]
+    );
+
+    const player = selected.rows[0];
+
+    if (!player) {
+      await client.query("COMMIT");
+      return null;
+    }
+
+    const now = Date.now();
+
+    const last = player.auto_last_at
+      ? new Date(player.auto_last_at).getTime()
+      : now;
+
+    const elapsedMs = Math.max(0, now - last);
+
+    const elapsedSeconds = Math.min(
+      86400,
+      Math.floor(elapsedMs / 1000)
+    );
+
+    const autoLevel = Math.max(
+      0,
+      Number(player.auto_level || 0)
+    );
+
+    const multiplier = Math.pow(
+      2,
+      Math.max(
+        0,
+        Number(player.multiplier_level || 0)
+      )
+    );
+
+    const gained = Math.floor(
+      elapsedSeconds * autoLevel * multiplier
+    );
+
+    if (elapsedSeconds <= 0) {
+      await client.query("COMMIT");
+      return player;
+    }
+
+    const capped = elapsedMs > 86400 * 1000;
+
+    const updated = await client.query(
+      `UPDATE players
+       SET auto_last_at = CASE
+             WHEN $2::boolean
+               THEN NOW() - INTERVAL '1 second'
+             ELSE auto_last_at
+               + ($3 * INTERVAL '1 second')
+           END,
+           coins = coins + $4,
+           total_earned = total_earned + $4,
+           updated_at = NOW()
+       WHERE telegram_id = $1
+       RETURNING *`,
+      [
+        String(playerId),
+        capped,
+        elapsedSeconds,
+        gained
+      ]
+    );
+
+    if (gained > 0) {
+      await client.query(
+        `INSERT INTO earnings (telegram_id, amount)
+         VALUES ($1, $2)`,
+        [String(playerId), gained]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return updated.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// ========================================
+// АВТОРИЗАЦИЯ ИГРОКА
+// ========================================
+
 async function auth(req, res, next) {
   const initData =
     req.get("X-Telegram-Init-Data") ||
     req.body?.initData ||
     "";
 
-  const telegramUser = verifyTelegramInitData(initData);
+  const telegramUser =
+    verifyTelegramInitData(initData);
 
   if (telegramUser) {
     try {
       const id = String(telegramUser.id);
 
-      const name =
-        [
-          telegramUser.first_name,
-          telegramUser.last_name
-        ]
-          .filter(Boolean)
-          .join(" ") ||
+      const name = [
+        telegramUser.first_name,
+        telegramUser.last_name
+      ]
+        .filter(Boolean)
+        .join(" ") ||
         telegramUser.username ||
         "Игрок";
 
@@ -185,7 +335,10 @@ async function auth(req, res, next) {
         [id, name]
       );
 
-      req.player = result.rows[0];
+      req.player =
+        await accrueAutoEarnings(id) ||
+        result.rows[0];
+
       return next();
     } catch (e) {
       console.error("auth db:", e.message);
@@ -196,12 +349,13 @@ async function auth(req, res, next) {
     }
   }
 
-  // Разрешено только для локальной разработки
   if (
     process.env.ALLOW_DEV_AUTH === "true" &&
     process.env.NODE_ENV !== "production"
   ) {
-    const id = String(req.get("X-Dev-Player") || "100000001");
+    const id = String(
+      req.get("X-Dev-Player") || "100000001"
+    );
 
     if (!/^\d+$/.test(id)) {
       return res.status(400).json({
@@ -219,7 +373,10 @@ async function auth(req, res, next) {
         [id]
       );
 
-      req.player = result.rows[0];
+      req.player =
+        await accrueAutoEarnings(id) ||
+        result.rows[0];
+
       return next();
     } catch (e) {
       console.error("dev auth:", e.message);
@@ -235,7 +392,10 @@ async function auth(req, res, next) {
   });
 }
 
-// Инициализация и миграция базы данных
+// ========================================
+// ИНИЦИАЛИЗАЦИЯ БАЗЫ И МИГРАЦИИ
+// ========================================
+
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS players (
@@ -251,49 +411,66 @@ async function initDb() {
       xp BIGINT NOT NULL DEFAULT 0,
       total_clicks BIGINT NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      auto_last_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Игрок';
+      ADD COLUMN IF NOT EXISTS name
+      TEXT NOT NULL DEFAULT 'Игрок';
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS coins BIGINT NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS coins
+      BIGINT NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS total_earned BIGINT NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS total_earned
+      BIGINT NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS click_power INTEGER NOT NULL DEFAULT 1;
+      ADD COLUMN IF NOT EXISTS click_power
+      INTEGER NOT NULL DEFAULT 1;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS auto_level INTEGER NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS auto_level
+      INTEGER NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS multiplier_level
+      INTEGER NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS streak INTEGER NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS streak
+      INTEGER NOT NULL DEFAULT 0;
 
     ALTER TABLE players
       ADD COLUMN IF NOT EXISTS last_daily DATE;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS xp BIGINT NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS xp
+      BIGINT NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS total_clicks BIGINT NOT NULL DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS total_clicks
+      BIGINT NOT NULL DEFAULT 0;
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      ADD COLUMN IF NOT EXISTS created_at
+      TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
     ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+      ADD COLUMN IF NOT EXISTS updated_at
+      TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS auto_last_at
+      TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
     CREATE TABLE IF NOT EXISTS earnings (
       id BIGSERIAL PRIMARY KEY,
       telegram_id BIGINT NOT NULL
-        REFERENCES players(telegram_id) ON DELETE CASCADE,
+        REFERENCES players(telegram_id)
+        ON DELETE CASCADE,
       amount BIGINT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -301,7 +478,8 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS task_claims (
       id BIGSERIAL PRIMARY KEY,
       telegram_id BIGINT NOT NULL
-        REFERENCES players(telegram_id) ON DELETE CASCADE,
+        REFERENCES players(telegram_id)
+        ON DELETE CASCADE,
       task_key TEXT NOT NULL,
       claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (telegram_id, task_key)
@@ -316,7 +494,9 @@ async function initDb() {
 
 async function getPlayer(id) {
   const result = await pool.query(
-    "SELECT * FROM players WHERE telegram_id = $1",
+    `SELECT *
+     FROM players
+     WHERE telegram_id = $1`,
     [String(id)]
   );
 
@@ -326,14 +506,26 @@ async function getPlayer(id) {
 function clickReward(player) {
   return (
     Math.max(1, Number(player.click_power || 1)) *
-    Math.max(1, Math.pow(2, Number(player.multiplier_level || 0)))
+    Math.max(
+      1,
+      Math.pow(
+        2,
+        Number(player.multiplier_level || 0)
+      )
+    )
   );
 }
 
-// Состояние игрока
+// ========================================
+// СОСТОЯНИЕ
+// ========================================
+
 app.get("/api/state", auth, async (req, res) => {
   try {
-    const player = await getPlayer(req.player.telegram_id);
+    const player = await getPlayer(
+      req.player.telegram_id
+    );
+
     res.json(safePlayer(player));
   } catch (e) {
     console.error("state:", e.message);
@@ -344,7 +536,10 @@ app.get("/api/state", auth, async (req, res) => {
   }
 });
 
-// Клик
+// ========================================
+// РУЧНОЙ КЛИК
+// ========================================
+
 app.post("/api/click", auth, async (req, res) => {
   const client = await pool.connect();
 
@@ -352,7 +547,8 @@ app.post("/api/click", auth, async (req, res) => {
     await client.query("BEGIN");
 
     const selected = await client.query(
-      `SELECT * FROM players
+      `SELECT *
+       FROM players
        WHERE telegram_id = $1
        FOR UPDATE`,
       [String(req.player.telegram_id)]
@@ -375,13 +571,19 @@ app.post("/api/click", auth, async (req, res) => {
            updated_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
-      [String(req.player.telegram_id), reward]
+      [
+        String(req.player.telegram_id),
+        reward
+      ]
     );
 
     await client.query(
       `INSERT INTO earnings (telegram_id, amount)
        VALUES ($1, $2)`,
-      [String(req.player.telegram_id), reward]
+      [
+        String(req.player.telegram_id),
+        reward
+      ]
     );
 
     await client.query("COMMIT");
@@ -403,10 +605,15 @@ app.post("/api/click", auth, async (req, res) => {
   }
 });
 
-// Информация об улучшениях
+// ========================================
+// УЛУЧШЕНИЯ
+// ========================================
+
 app.get("/api/upgrades", auth, async (req, res) => {
   try {
-    const p = await getPlayer(req.player.telegram_id);
+    const p = await getPlayer(
+      req.player.telegram_id
+    );
 
     if (!p) {
       return res.status(404).json({
@@ -415,7 +622,10 @@ app.get("/api/upgrades", auth, async (req, res) => {
     }
 
     const levels = {
-      click: Math.max(0, Number(p.click_power || 1) - 1),
+      click: Math.max(
+        0,
+        Number(p.click_power || 1) - 1
+      ),
       auto: Number(p.auto_level || 0),
       multiplier: Number(p.multiplier_level || 0)
     };
@@ -424,6 +634,7 @@ app.get("/api/upgrades", auth, async (req, res) => {
 
     for (const [key, config] of Object.entries(UPGRADES)) {
       const level = levels[key];
+
       const cost = Math.floor(
         config.base * Math.pow(config.factor, level)
       );
@@ -446,9 +657,17 @@ app.get("/api/upgrades", auth, async (req, res) => {
   }
 });
 
-// Покупка улучшения
+// ========================================
+// ПОКУПКА УЛУЧШЕНИЯ
+// ========================================
+
 app.post("/api/buy", auth, async (req, res) => {
-  const key = String(req.body?.upgrade || req.body?.type || "");
+  const key = String(
+    req.body?.upgrade ||
+    req.body?.type ||
+    ""
+  );
+
   const config = UPGRADES[key];
 
   if (!config) {
@@ -463,7 +682,8 @@ app.post("/api/buy", auth, async (req, res) => {
     await client.query("BEGIN");
 
     const r = await client.query(
-      `SELECT * FROM players
+      `SELECT *
+       FROM players
        WHERE telegram_id = $1
        FOR UPDATE`,
       [String(req.player.telegram_id)]
@@ -477,7 +697,10 @@ app.post("/api/buy", auth, async (req, res) => {
 
     const level =
       key === "click"
-        ? Math.max(0, Number(p.click_power || 1) - 1)
+        ? Math.max(
+            0,
+            Number(p.click_power || 1) - 1
+          )
         : key === "auto"
           ? Number(p.auto_level || 0)
           : Number(p.multiplier_level || 0);
@@ -502,7 +725,6 @@ app.post("/api/buy", auth, async (req, res) => {
       });
     }
 
-    // Имя столбца берётся только из серверной конфигурации
     const updated = await client.query(
       `UPDATE players
        SET coins = coins - $2,
@@ -510,7 +732,10 @@ app.post("/api/buy", auth, async (req, res) => {
            updated_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
-      [String(req.player.telegram_id), cost]
+      [
+        String(req.player.telegram_id),
+        cost
+      ]
     );
 
     await client.query("COMMIT");
@@ -531,7 +756,10 @@ app.post("/api/buy", auth, async (req, res) => {
   }
 });
 
-// Ежедневная награда
+// ========================================
+// ЕЖЕДНЕВНАЯ НАГРАДА
+// ========================================
+
 app.post("/api/daily", auth, async (req, res) => {
   const id = String(req.player.telegram_id);
   const client = await pool.connect();
@@ -555,6 +783,7 @@ app.post("/api/daily", auth, async (req, res) => {
     }
 
     const today = String(p.today).slice(0, 10);
+
     const last = p.last_daily
       ? String(p.last_daily).slice(0, 10)
       : null;
@@ -573,12 +802,15 @@ app.post("/api/daily", auth, async (req, res) => {
     );
 
     const streak =
-      last && Number(yesterday.rows[0].difference) === 1
+      last &&
+      Number(yesterday.rows[0].difference) === 1
         ? Number(p.streak) + 1
         : 1;
 
     const reward =
-      DAILY_REWARDS[(streak - 1) % DAILY_REWARDS.length];
+      DAILY_REWARDS[
+        (streak - 1) % DAILY_REWARDS.length
+      ];
 
     const updated = await client.query(
       `UPDATE players
@@ -619,9 +851,14 @@ app.post("/api/daily", auth, async (req, res) => {
   }
 });
 
-// Рейтинг
+// ========================================
+// РЕЙТИНГ
+// ========================================
+
 app.get("/api/leaderboard", auth, async (req, res) => {
-  const period = String(req.query.period || "week");
+  const period = String(
+    req.query.period || "week"
+  );
 
   const intervals = {
     week: "7 days",
@@ -669,7 +906,10 @@ app.get("/api/leaderboard", auth, async (req, res) => {
   }
 });
 
-// Задания
+// ========================================
+// ЗАДАНИЯ
+// ========================================
+
 function taskList(p, claims) {
   const claimed = new Set(claims);
   const level = levelFromXp(Number(p.xp)).level;
@@ -679,7 +919,10 @@ function taskList(p, claims) {
       key: "click_50",
       title: "Разминка",
       description: "Сделай 50 кликов",
-      progress: Math.min(50, Number(p.total_clicks)),
+      progress: Math.min(
+        50,
+        Number(p.total_clicks)
+      ),
       goal: 50,
       coins: 100,
       xp: 50,
@@ -689,7 +932,10 @@ function taskList(p, claims) {
       key: "earn_1000",
       title: "Первая тысяча",
       description: "Заработай 1 000 монет за всё время",
-      progress: Math.min(1000, Number(p.total_earned)),
+      progress: Math.min(
+        1000,
+        Number(p.total_earned)
+      ),
       goal: 1000,
       coins: 250,
       xp: 100,
@@ -722,10 +968,11 @@ function taskList(p, claims) {
   }));
 }
 
-// Получение заданий
 app.get("/api/tasks", auth, async (req, res) => {
   try {
-    const p = await getPlayer(req.player.telegram_id);
+    const p = await getPlayer(
+      req.player.telegram_id
+    );
 
     const claims = await pool.query(
       `SELECT task_key
@@ -750,7 +997,10 @@ app.get("/api/tasks", auth, async (req, res) => {
   }
 });
 
-// Получение награды за задание
+// ========================================
+// ПОЛУЧЕНИЕ НАГРАДЫ ЗА ЗАДАНИЕ
+// ========================================
+
 app.post("/api/tasks/claim", auth, async (req, res) => {
   const key = String(req.body?.key || "");
   const id = String(req.player.telegram_id);
@@ -774,7 +1024,8 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
     await client.query("BEGIN");
 
     const r = await client.query(
-      `SELECT * FROM players
+      `SELECT *
+       FROM players
        WHERE telegram_id = $1
        FOR UPDATE`,
       [id]
@@ -787,8 +1038,10 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
     }
 
     const existing = await client.query(
-      `SELECT 1 FROM task_claims
-       WHERE telegram_id = $1 AND task_key = $2`,
+      `SELECT 1
+       FROM task_claims
+       WHERE telegram_id = $1
+         AND task_key = $2`,
       [id, key]
     );
 
@@ -800,15 +1053,26 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
       });
     }
 
-    if (key === "click_50" && Number(p.total_clicks) < 50) {
+    if (
+      key === "click_50" &&
+      Number(p.total_clicks) < 50
+    ) {
       throw new Error("Сначала сделай 50 кликов.");
     }
 
-    if (key === "earn_1000" && Number(p.total_earned) < 1000) {
-      throw new Error("Сначала заработай 1 000 монет.");
+    if (
+      key === "earn_1000" &&
+      Number(p.total_earned) < 1000
+    ) {
+      throw new Error(
+        "Сначала заработай 1 000 монет."
+      );
     }
 
-    if (key === "level_5" && levelFromXp(Number(p.xp)).level < 5) {
+    if (
+      key === "level_5" &&
+      levelFromXp(Number(p.xp)).level < 5
+    ) {
       throw new Error("Сначала достигни 5 уровня.");
     }
 
@@ -834,9 +1098,13 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
       }
 
       const status = data.result?.status;
+
       const subscribed =
         ["member", "administrator", "creator"].includes(status) ||
-        (status === "restricted" && data.result?.is_member === true);
+        (
+          status === "restricted" &&
+          data.result?.is_member === true
+        );
 
       if (!subscribed) {
         throw new Error(
@@ -876,7 +1144,8 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
       ...safePlayer(updated.rows[0]),
       gained: reward.coins,
       gainedXp: reward.xp,
-      message: `+${reward.coins} монет и +${reward.xp} XP!`
+      message:
+        `+${reward.coins} монет и +${reward.xp} XP!`
     });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
@@ -889,18 +1158,24 @@ app.post("/api/tasks/claim", auth, async (req, res) => {
       );
 
     res.status(clientError ? 400 : 500).json({
-      error: e.message || "Не удалось получить награду."
+      error:
+        e.message ||
+        "Не удалось получить награду."
     });
   } finally {
     client.release();
   }
 });
 
-// Мини-игра: начало раунда
+// ========================================
+// МИНИ-ИГРА
+// ========================================
+
 const activeGames = new Map();
 
 app.post("/api/minigame/start", auth, async (req, res) => {
   const id = String(req.player.telegram_id);
+
   const challengeId = crypto.randomBytes(16).toString("hex");
   const waitMs = crypto.randomInt(1800, 4500);
 
@@ -916,12 +1191,14 @@ app.post("/api/minigame/start", auth, async (req, res) => {
   });
 });
 
-// Мини-игра: завершение раунда
 app.post("/api/minigame/finish", auth, async (req, res) => {
   const id = String(req.player.telegram_id);
   const game = activeGames.get(id);
 
-  if (!game || req.body?.challengeId !== game.challengeId) {
+  if (
+    !game ||
+    req.body?.challengeId !== game.challengeId
+  ) {
     return res.status(400).json({
       error: "Начни новый раунд."
     });
@@ -945,6 +1222,7 @@ app.post("/api/minigame/finish", auth, async (req, res) => {
 
   const coins = crypto.randomInt(40, 101);
   const xp = 15;
+
   const client = await pool.connect();
 
   try {
@@ -991,7 +1269,10 @@ app.post("/api/minigame/finish", auth, async (req, res) => {
   }
 });
 
-// Проверка сервера для Render
+// ========================================
+// ПРОВЕРКА СЕРВЕРА
+// ========================================
+
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
@@ -1000,12 +1281,20 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
-// Главная страница
+// ========================================
+// ГЛАВНАЯ СТРАНИЦА
+// ========================================
+
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
 });
 
-// Обработка ошибок Express
+// ========================================
+// ОБРАБОТКА ОШИБОК
+// ========================================
+
 app.use((err, req, res, next) => {
   console.error("Server error:", err.message);
 
@@ -1018,7 +1307,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Запуск после успешной инициализации БД
+// ========================================
+// ЗАПУСК
+// ========================================
+
 initDb()
   .then(() => {
     app.listen(PORT, "0.0.0.0", () => {
@@ -1026,6 +1318,10 @@ initDb()
     });
   })
   .catch(error => {
-    console.error("Database initialization failed:", error);
+    console.error(
+      "Database initialization failed:",
+      error
+    );
+
     process.exit(1);
   });
