@@ -2239,3 +2239,21 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
 .case-result.rarity-legendary { color:#ff91d2; }
 .case-result.error { color:#ff8e9c; }
 @media(max-width:380px) { .case-item { grid-template-columns:38px minmax(0,1fr) auto; gap:7px; padding:8px; } .case-art { width:38px;height:38px;font-size:22px; } .skin-collection { gap:5px; } .skin-icon { width:36px;height:36px;font-size:22px; } .skin-card { padding:8px 3px; } }
+
+
+/* Fix mobile home layout: navigation stays in normal flow below click stats */
+@media (max-width: 520px) {
+  #app { box-sizing:border-box; width:100%; max-width:100%; overflow-x:clip; }
+  #app .navbar {
+    position:relative !important;
+    inset:auto !important;
+    transform:none !important;
+    margin:5px 0 8px !important;
+    width:100%;
+    box-sizing:border-box;
+    z-index:8;
+  }
+  #tab-home { min-width:0; }
+  #tab-home .click-stats { margin:0 0 5px !important; }
+  #tab-home .cookie-stage { overflow:hidden; }
+}
