@@ -23,7 +23,6 @@ function verifyTelegramInitData(initData) {
     const receivedHash = params.get("hash");
     if (!receivedHash || !/^[a-f0-9]{64}$/i.test(receivedHash)) return { valid: false };
     params.delete("hash");
-    params.delete("signature");
     const dataCheckString = [...params.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => key + "=" + value)
