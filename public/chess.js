@@ -584,30 +584,18 @@
 
   function chooseBotMove() {
     const legalMoves = state.game.moves({ verbose: true });
-
     if (!legalMoves.length) return null;
 
     if (state.difficulty === "easy") {
       return legalMoves[Math.floor(Math.random() * legalMoves.length)];
     }
 
-    const scoredMoves = legalMoves.map((move) => {
-      const score = scoreMove(move);
-
-      return {
-        move,
-        score,
-      };
-    });
-
-    scoredMoves.sort((a, b) => b.score - a.score);
+    const scoredMoves = legalMoves
+      .map((move) => ({ move, score: scoreMove(move) }))
+      .sort((a, b) => b.score - a.score);
 
     if (state.difficulty === "medium") {
-      const candidates = scoredMoves.slice(
-        0,
-        Math.min(5, scoredMoves.length)
-      );
-
+      const candidates = scoredMoves.slice(0, Math.min(5, scoredMoves.length));
       return candidates[Math.floor(Math.random() * candidates.length)].move;
     }
 
@@ -616,16 +604,30 @@
 
     for (const candidate of scoredMoves.slice(0, 12)) {
       const before = state.game.fen();
+      let score = candidate.score;
 
-      state.game.move(candidate.move);
+      try {
+        const played = state.game.move({
+          from: candidate.move.from,
+          to: candidate.move.to,
+          promotion: candidate.move.promotion || "q",
+        });
 
-      let score = -evaluateMaterial();
+        if (played) {
+          score = -evaluateMaterial();
 
-      if (state.game.isCheckmate()) {
-        score += 100000;
+          // chess.js 0.10.x uses in_checkmate(); newer releases use isCheckmate().
+          const isMate =
+            (typeof state.game.in_checkmate === "function" && state.game.in_checkmate()) ||
+            (typeof state.game.isCheckmate === "function" && state.game.isCheckmate());
+
+          if (isMate) score += 100000;
+        }
+      } catch (error) {
+        console.warn("[AKIRA Chess] Не удалось оценить ход бота:", error);
+      } finally {
+        state.game.load(before);
       }
-
-      state.game.load(before);
 
       if (score > bestScore) {
         bestScore = score;
