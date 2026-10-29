@@ -2092,3 +2092,37 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Daily quests and achievement cards */
+.tasks-achievements {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(224,218,255,.20);
+  border-radius: 20px;
+  background: linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.018)),rgba(25,29,48,.54);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 12px 28px rgba(0,0,0,.15);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+.tasks-achievements h3 { margin: 0 0 8px; font-size: 16px; }
+.tasks-achievements .section-description { margin: 0 0 12px; }
+.task-list, .achievement-list { display: grid; gap: 9px; }
+.task-card, .achievement-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(224,218,255,.14);
+  border-radius: 15px;
+  background: rgba(255,255,255,.035);
+}
+.task-card strong, .achievement-card strong { display:block; font-size: 13px; }
+.task-card p, .achievement-card p { margin: 5px 0 9px; font-size: 12px; color: var(--muted, #a9adc2); line-height: 1.4; }
+.task-progress { margin-bottom: 9px; font-size: 11px; color: #c8b3ff; }
+.task-card button { width: 100%; min-height: 36px; font-size: 12px; }
+.task-card button:disabled { opacity: .6; cursor: default; }
+.achievements-heading { margin-top: 18px !important; }
+.achievement-card.unlocked { border-color: rgba(180,146,255,.36); background: linear-gradient(130deg,rgba(164,125,255,.10),rgba(255,255,255,.025)); }
+@media (max-width: 420px) {
+  .tasks-achievements { padding: 12px; border-radius: 17px; }
+  .task-card, .achievement-card { padding: 10px; }
+}
