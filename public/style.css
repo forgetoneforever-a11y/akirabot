@@ -2126,3 +2126,21 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   .tasks-achievements { padding: 12px; border-radius: 17px; }
   .task-card, .achievement-card { padding: 10px; }
 }
+
+
+/* Progression ladder and leaderboard ranks */
+.rank-ladder { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 16px; }
+.rank-ladder span { border:1px solid rgba(218,224,255,.14); background:rgba(255,255,255,.035); padding:5px 8px; border-radius:999px; font-size:10px; color:var(--muted,#b5bad0); }
+.level-progress { display:flex; flex-direction:column; gap:5px; min-width:0; width:min(100%,220px); margin:5px 0 10px; }
+.level-progress-track { height:5px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; }
+.level-progress-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#9472ff,#d8c7ff); box-shadow:0 0 12px rgba(166,130,255,.55); transition:width .35s ease; }
+#level-progress-label { font-size:10px; color:var(--muted,#a9adc2); }
+#leaderboard .leaderboard-details { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; }
+#leaderboard .leaderboard-name { min-width:0; }
+#leaderboard .leaderboard-level { font-size:10px; color:#c5a4ff; overflow-wrap:anywhere; }
+#leaderboard .leaderboard-row { align-items:center; }
+@media(max-width:420px) {
+ .rank-ladder { gap:4px; }
+ .rank-ladder span { font-size:9px; padding:4px 6px; }
+ .level-progress { width:100%; max-width:180px; }
+}
