@@ -1073,3 +1073,51 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
 
 #tab-games .game-setting-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
 #tab-games.games-screen[data-playing="true"] .game-panel:not([hidden]) { display:flex; }
+
+
+/* Mobile-first frosted-glass game panels */
+#tab-games .game-card,
+#tab-games .game-panel,
+#tab-games .games-setup-panel,
+#tab-games .game-mode-button,
+#tab-games .game-status,
+#tab-games .game-actions button,
+#tab-games .chess-board,
+#tab-games .durak-table {
+  border-color: rgba(224,218,255,.20);
+  background-color: rgba(26,30,48,.64);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.075), 0 12px 28px rgba(0,0,0,.16);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+#tab-games { min-width: 0; width: 100%; }
+#tab-games * { min-width: 0; }
+#tab-games .games-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#tab-games .game-card { overflow: hidden; }
+#tab-games .game-card-title { overflow-wrap: anywhere; }
+#tab-games .game-panel { overflow: hidden; }
+@media (max-width: 520px) {
+  #tab-games { padding: 0; }
+  #tab-games .games-screen-topbar { gap: 8px; }
+  #tab-games .games-hero { padding: 16px 12px; }
+  #tab-games .games-grid { gap: 10px; }
+  #tab-games .game-card { padding: 12px; border-radius: 17px; }
+  #tab-games .game-card-art { min-height: 74px; }
+  #tab-games .game-card-title { font-size: 17px; }
+  #tab-games .game-card-description { font-size: 11px; line-height: 1.45; }
+  #tab-games .games-setup-panel,
+  #tab-games .game-panel { padding: 12px; border-radius: 18px; }
+  #tab-games .game-mode-buttons { gap: 6px; }
+  #tab-games .game-mode-button,
+  #tab-games [data-game-mode] { min-height: 42px; padding: 8px; font-size: 11px; }
+  #tab-games .game-setting-field select,
+  #tab-games .game-setting-field input { width: 100%; max-width: 100%; }
+  #tab-games .game-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+  #tab-games .game-actions button { min-width: 0; padding: 9px 6px; }
+}
+@media (max-width: 370px) {
+  #tab-games .games-grid { grid-template-columns: 1fr; }
+  #tab-games .game-card-art { min-height: 58px; }
+  #tab-games .game-card { display: grid; grid-template-columns: 76px minmax(0,1fr); align-items: center; }
+  #tab-games .game-card-art { grid-row: span 2; }
+}
