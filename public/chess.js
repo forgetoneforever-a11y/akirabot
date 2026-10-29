@@ -649,31 +649,32 @@
         return;
       }
 
-      const move = chooseBotMove();
-
-      if (!move) {
-        state.thinking = false;
-        checkGameOver();
-        return;
-      }
-
-      let result;
+      let move;
+      let result = null;
 
       try {
-        result = state.game.move({
-          from: move.from,
-          to: move.to,
-          promotion: move.promotion || "q",
-        });
+        move = chooseBotMove();
+        if (move) {
+          result = state.game.move({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q",
+          });
+        }
       } catch (error) {
-        result = null;
+        console.error("[AKIRA Chess] Ошибка хода бота:", error);
       }
 
       state.thinking = false;
 
       if (!result) {
-        setStatus("Бот не смог сделать ход. Попробуй начать новую партию.");
-        renderBoard();
+        if (state.game && state.game.game_over()) {
+          checkGameOver();
+        } else {
+          setStatus("Бот не ответил. Попробуй ещё раз или начни новую партию.");
+          renderBoard();
+          setControlsEnabled(true);
+        }
         return;
       }
 
