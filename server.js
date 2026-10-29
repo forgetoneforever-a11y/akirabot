@@ -278,8 +278,8 @@ app.get("/api/state", async (req, res, next) => {
     // Accrue automatic-cookie income on the server, never trust client-side totals.
     const result = await pool.query(
       `UPDATE players
-       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1),
-           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1),
+       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=2 THEN 1.05 ELSE 1 END,
+           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id=players.telegram_id)>=2 THEN 1.05 ELSE 1 END,
            last_auto_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
