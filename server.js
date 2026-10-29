@@ -197,8 +197,22 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.get("/api/state", (req, res) => {
-  res.json({ ok: true, player: publicPlayer(req.player) });
+app.get("/api/state", async (req, res, next) => {
+  try {
+    // Accrue automatic-cookie income on the server, never trust client-side totals.
+    const result = await pool.query(
+      `UPDATE players
+       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level,
+           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level,
+           last_auto_at = NOW()
+       WHERE telegram_id = $1
+       RETURNING *`,
+      [req.player.telegram_id]
+    );
+    res.json({ ok: true, player: publicPlayer(result.rows[0] || req.player) });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/click", async (req, res, next) => {
@@ -444,6 +458,7 @@ async function start() {
       auto_level INTEGER NOT NULL DEFAULT 0,
       multiplier_level INTEGER NOT NULL DEFAULT 0,
       last_daily DATE,
+      last_auto_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
@@ -461,6 +476,7 @@ async function start() {
       ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS last_daily DATE,
       ADD COLUMN IF NOT EXISTS last_daily_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS last_auto_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
