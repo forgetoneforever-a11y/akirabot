@@ -1,4 +1,5 @@
-require("dotenv").config();
+
+"use strict";
 
 const express = require("express");
 const path = require("path");
@@ -8,31 +9,17 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const BOT_TOKEN =
-  process.env.BOT_TOKEN ||
-  process.env.TELEGRAM_BOT_TOKEN ||
-  "";
-
-const REQUIRED_CHANNEL = process.env.REQUIRED_CHANNEL || "";
-const CHANNEL_URL = process.env.REQUIRED_CHANNEL_URL || "";
-
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "100kb" }));
-app.use(express.static(path.join(__dirname, "public")));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.DATABASE_URL &&
-    !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL)
-      ? { rejectUnauthorized: false }
-      : false
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : undefined
 });
 
-pool.on("error", (err) => {
-  console.error("PostgreSQL pool error:", err.message);
-});
-
-const DAILY_REWARDS = [100, 150, 200, 250, 300, 400, 500];
+const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
 
 const UPGRADES = {
   click: {
@@ -55,1273 +42,441 @@ const UPGRADES = {
   }
 };
 
-// ========================================
-// УРОВЕНЬ И ОПЫТ
-// ========================================
+function number(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
 
-function levelFromXp(xp) {
-  let level = 1;
-  let remaining = Math.max(0, Number(xp) || 0);
+function upgradePrice(type, player) {
+  const config = UPGRADES[type];
+  if (!config) return 0;
 
-  while (level < 10000 && remaining >= level * 100) {
-    remaining -= level * 100;
-    level++;
-  }
+  const level = Number(player[config.column] || 0);
+  return Math.floor(config.base * Math.pow(config.factor, level));
+}
+
+function publicPlayer(player) {
+  const multiplier = Number(player.multiplier_level || 0);
+  const clickPower = Number(player.click_power || 1);
 
   return {
-    level,
-    currentXp: remaining,
-    nextXp: level * 100
+    ...player,
+    balance: Number(player.balance || 0),
+    total_earned: Number(player.total_earned || 0),
+    click_power: clickPower,
+    auto_level: Number(player.auto_level || 0),
+    auto_power: Number(player.auto_level || 0),
+    multiplier_level: multiplier,
+    level: Math.max(
+      1,
+      Math.floor(Math.sqrt(Number(player.total_earned || 0) / 1000)) + 1
+    ),
+    click_price: upgradePrice("click", player),
+    auto_price: upgradePrice("auto", player),
+    multiplier_price: upgradePrice("multiplier", player)
   };
 }
 
-// ========================================
-// ДАННЫЕ ИГРОКА
-// ========================================
-
-function safePlayer(p) {
-  if (!p) return null;
-
-  const xp = Number(p.xp || 0);
-  const progression = levelFromXp(xp);
-
-  const clickPower = Math.max(
-    1,
-    Number(p.click_power || 1)
-  );
-
-  const multiplierLevel = Number(
-    p.multiplier_level || 0
-  );
-
-  const autoLevel = Number(p.auto_level || 0);
-
-  return {
-    id: String(p.telegram_id),
-    name: p.name || "Игрок",
-    coins: Number(p.coins || 0),
-    totalEarned: Number(p.total_earned || 0),
-
-    clickPower,
-    power: clickPower,
-
-    autoLevel,
-    autoPowerPerSecond:
-      autoLevel * Math.pow(2, multiplierLevel),
-
-    multiplierLevel,
-    multiplier: Math.pow(2, multiplierLevel),
-
-    streak: Number(p.streak || 0),
-
-    xp,
-    level: progression.level,
-    levelXp: progression.currentXp,
-    nextLevelXp: progression.nextXp,
-
-    totalClicks: Number(p.total_clicks || 0)
-  };
-}
-
-// ========================================
-// TELEGRAM INIT DATA
-// ========================================
-
+/*
+ * Telegram WebApp authentication.
+ * If BOT_TOKEN is configured, requests carrying initData are verified.
+ * For production, configure BOT_TOKEN in Render environment variables.
+ */
 function verifyTelegramInitData(initData) {
-  if (!BOT_TOKEN || !initData) return null;
+  if (!BOT_TOKEN) return { valid: true, user: null };
+  if (!initData) return { valid: false, user: null };
 
   try {
     const params = new URLSearchParams(initData);
-    const hash = params.get("hash");
+    const receivedHash = params.get("hash");
 
-    if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
-      return null;
-    }
+    if (!receivedHash) return { valid: false, user: null };
 
     params.delete("hash");
-
-    const authDate = Number(
-      params.get("auth_date") || 0
-    );
-
-    const now = Math.floor(Date.now() / 1000);
-
-    if (
-      !authDate ||
-      now - authDate > 86400 ||
-      authDate - now > 60
-    ) {
-      return null;
-    }
 
     const dataCheckString = [...params.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => `${key}=${value}`)
       .join("\n");
 
-    const secretKey = crypto
+    const secret = crypto
       .createHmac("sha256", "WebAppData")
       .update(BOT_TOKEN)
       .digest();
 
-    const calculated = crypto
-      .createHmac("sha256", secretKey)
+    const calculatedHash = crypto
+      .createHmac("sha256", secret)
       .update(dataCheckString)
       .digest("hex");
 
-    const suppliedBuffer = Buffer.from(hash, "hex");
-    const calculatedBuffer = Buffer.from(calculated, "hex");
+    const a = Buffer.from(calculatedHash, "hex");
+    const b = Buffer.from(receivedHash, "hex");
 
-    if (
-      suppliedBuffer.length !== calculatedBuffer.length ||
-      !crypto.timingSafeEqual(
-        suppliedBuffer,
-        calculatedBuffer
-      )
-    ) {
-      return null;
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return { valid: false, user: null };
     }
 
-    const user = JSON.parse(
-      params.get("user") || "{}"
-    );
+    const authDate = Number(params.get("auth_date") || 0);
 
-    return user.id ? user : null;
+    if (!authDate || Date.now() / 1000 - authDate > 86400) {
+      return { valid: false, user: null };
+    }
+
+    const user = JSON.parse(params.get("user") || "null");
+    if (!user?.id) return { valid: false, user: null };
+
+    return { valid: true, user };
   } catch {
-    return null;
+    return { valid: false, user: null };
   }
 }
 
-// ========================================
-// СЕРВЕРНЫЙ АВТОКЛИКЕР
-// ========================================
+async function getPlayer(req, res, next) {
+  try {
+    const initData = req.get("X-Telegram-Init-Data") || "";
+    const auth = verifyTelegramInitData(initData);
 
-// 1 уровень автокликера = 1 монета в секунду.
-// Множитель увеличивает автодоход.
-// Максимальное офлайн-начисление за один расчёт — 24 часа.
+    if (!auth.valid) {
+      return res.status(401).json({
+        error: "Не удалось подтвердить Telegram-пользователя. Перезапусти Mini App."
+      });
+    }
 
-async function accrueAutoEarnings(playerId) {
+    let telegramId;
+    let username = "Игрок";
+    let firstName = "Игрок";
+
+    if (auth.user) {
+      telegramId = String(auth.user.id);
+      username = auth.user.username || auth.user.first_name || "Игрок";
+      firstName = auth.user.first_name || username;
+    } else {
+      // Режим локальной проверки без настроенного BOT_TOKEN.
+      telegramId = String(
+        req.body?.telegram_id ||
+        req.query?.telegram_id ||
+        req.get("X-Player-Id") ||
+        "local-player"
+      );
+    }
+
+    await pool.query(
+      `INSERT INTO players
+        (telegram_id, username, name, balance, total_earned,
+         click_power, auto_level, multiplier_level)
+       VALUES ($1, $2, $3, 0, 0, 1, 0, 0)
+       ON CONFLICT (telegram_id) DO UPDATE
+       SET username = CASE
+         WHEN players.username IS NULL OR players.username = ''
+         THEN EXCLUDED.username ELSE players.username END,
+       name = CASE
+         WHEN players.name IS NULL OR players.name = ''
+         THEN EXCLUDED.name ELSE players.name END`,
+      [telegramId, username, firstName]
+    );
+
+    const result = await pool.query(
+      "SELECT * FROM players WHERE telegram_id = $1",
+      [telegramId]
+    );
+
+    req.player = result.rows[0];
+    req.telegramUser = auth.user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+app.use("/api", getPlayer);
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, service: "AKIRA" });
+});
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true, database: "connected" });
+  } catch {
+    res.status(500).json({ ok: false, database: "error" });
+  }
+});
+
+app.get("/api/state", (req, res) => {
+  res.json({
+    ok: true,
+    player: publicPlayer(req.player)
+  });
+});
+
+app.post("/api/click", async (req, res, next) => {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    const selected = await client.query(
-      `SELECT *
-       FROM players
-       WHERE telegram_id = $1
-       FOR UPDATE`,
-      [String(playerId)]
+    const result = await client.query(
+      "SELECT * FROM players WHERE telegram_id = $1 FOR UPDATE",
+      [req.player.telegram_id]
     );
 
-    const player = selected.rows[0];
-
-    if (!player) {
-      await client.query("COMMIT");
-      return null;
-    }
-
-    const now = Date.now();
-
-    const last = player.auto_last_at
-      ? new Date(player.auto_last_at).getTime()
-      : now;
-
-    const elapsedMs = Math.max(0, now - last);
-
-    const elapsedSeconds = Math.min(
-      86400,
-      Math.floor(elapsedMs / 1000)
-    );
-
-    const autoLevel = Math.max(
-      0,
-      Number(player.auto_level || 0)
-    );
-
-    const multiplier = Math.pow(
-      2,
-      Math.max(
-        0,
-        Number(player.multiplier_level || 0)
-      )
-    );
-
-    const gained = Math.floor(
-      elapsedSeconds * autoLevel * multiplier
-    );
-
-    if (elapsedSeconds <= 0) {
-      await client.query("COMMIT");
-      return player;
-    }
-
-    const capped = elapsedMs > 86400 * 1000;
+    const player = result.rows[0];
+    const reward =
+      Number(player.click_power || 1) *
+      Math.pow(2, Number(player.multiplier_level || 0));
 
     const updated = await client.query(
       `UPDATE players
-       SET auto_last_at = CASE
-             WHEN $2::boolean
-               THEN NOW() - INTERVAL '1 second'
-             ELSE auto_last_at
-               + ($3 * INTERVAL '1 second')
-           END,
-           coins = coins + $4,
-           total_earned = total_earned + $4,
-           updated_at = NOW()
-       WHERE telegram_id = $1
+       SET balance = balance + $1,
+           total_earned = total_earned + $1
+       WHERE telegram_id = $2
        RETURNING *`,
-      [
-        String(playerId),
-        capped,
-        elapsedSeconds,
-        gained
-      ]
+      [reward, player.telegram_id]
     );
-
-    if (gained > 0) {
-      await client.query(
-        `INSERT INTO earnings (telegram_id, amount)
-         VALUES ($1, $2)`,
-        [String(playerId), gained]
-      );
-    }
 
     await client.query("COMMIT");
 
-    return updated.rows[0];
+    res.json({
+      ok: true,
+      reward,
+      player: publicPlayer(updated.rows[0])
+    });
   } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+async function purchaseUpgrade(req, res, next) {
+  const type = req.body?.upgrade || req.body?.type;
+
+  if (!UPGRADES[type]) {
+    return res.status(400).json({ error: "Неизвестное улучшение" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      "SELECT * FROM players WHERE telegram_id = $1 FOR UPDATE",
+      [req.player.telegram_id]
+    );
+
+    const player = result.rows[0];
+    const config = UPGRADES[type];
+    const level = Number(player[config.column] || 0);
+
+    if (level >= config.max) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Улучшение уже достигло максимального уровня"
+      });
+    }
+
+    const cost = upgradePrice(type, player);
+
+    if (Number(player.balance || 0) < cost) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "Недостаточно монет",
+        price: cost,
+        balance: Number(player.balance || 0)
+      });
+    }
+
+    // Название столбца берётся только из фиксированной конфигурации.
+    const updated = await client.query(
+      `UPDATE players
+       SET balance = balance - $1,
+           ${config.column} = ${config.column} + 1
+       WHERE telegram_id = $2
+       RETURNING *`,
+      [cost, player.telegram_id]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      ok: true,
+      message: "Улучшение куплено!",
+      cost,
+      player: publicPlayer(updated.rows[0])
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
   } finally {
     client.release();
   }
 }
 
-// ========================================
-// АВТОРИЗАЦИЯ ИГРОКА
-// ========================================
+// Поддерживаем оба адреса, чтобы старый клиент не получал 404.
+app.post("/api/buy", purchaseUpgrade);
+app.post("/api/upgrades", purchaseUpgrade);
 
-async function auth(req, res, next) {
-  const initData =
-    req.get("X-Telegram-Init-Data") ||
-    req.body?.initData ||
-    "";
+app.post("/api/daily", async (req, res, next) => {
+  const client = await pool.connect();
 
-  const telegramUser =
-    verifyTelegramInitData(initData);
+  try {
+    await client.query("BEGIN");
 
-  if (telegramUser) {
-    try {
-      const id = String(telegramUser.id);
-
-      const name = [
-        telegramUser.first_name,
-        telegramUser.last_name
-      ]
-        .filter(Boolean)
-        .join(" ") ||
-        telegramUser.username ||
-        "Игрок";
-
-      const result = await pool.query(
-        `INSERT INTO players (telegram_id, name)
-         VALUES ($1, $2)
-         ON CONFLICT (telegram_id)
-         DO UPDATE SET
-           name = EXCLUDED.name,
-           updated_at = NOW()
-         RETURNING *`,
-        [id, name]
-      );
-
-      req.player =
-        await accrueAutoEarnings(id) ||
-        result.rows[0];
-
-      return next();
-    } catch (e) {
-      console.error("auth db:", e.message);
-
-      return res.status(500).json({
-        error: "Ошибка базы данных."
-      });
-    }
-  }
-
-  if (
-    process.env.ALLOW_DEV_AUTH === "true" &&
-    process.env.NODE_ENV !== "production"
-  ) {
-    const id = String(
-      req.get("X-Dev-Player") || "100000001"
+    const result = await client.query(
+      "SELECT * FROM players WHERE telegram_id = $1 FOR UPDATE",
+      [req.player.telegram_id]
     );
 
-    if (!/^\d+$/.test(id)) {
+    const player = result.rows[0];
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (player.last_daily && String(player.last_daily).slice(0, 10) === today) {
+      await client.query("ROLLBACK");
       return res.status(400).json({
-        error: "Неверный тестовый ID."
+        error: "Ежедневная награда уже получена сегодня"
       });
     }
 
-    try {
-      const result = await pool.query(
-        `INSERT INTO players (telegram_id, name)
-         VALUES ($1, 'Тестовый игрок')
-         ON CONFLICT (telegram_id)
-         DO UPDATE SET updated_at = NOW()
-         RETURNING *`,
-        [id]
-      );
+    const reward = 500;
 
-      req.player =
-        await accrueAutoEarnings(id) ||
-        result.rows[0];
+    const updated = await client.query(
+      `UPDATE players
+       SET balance = balance + $1,
+           total_earned = total_earned + $1,
+           last_daily = CURRENT_DATE
+       WHERE telegram_id = $2
+       RETURNING *`,
+      [reward, player.telegram_id]
+    );
 
-      return next();
-    } catch (e) {
-      console.error("dev auth:", e.message);
+    await client.query("COMMIT");
 
-      return res.status(500).json({
-        error: "Ошибка базы данных."
-      });
-    }
+    res.json({
+      ok: true,
+      reward,
+      message: `Получено ${reward} монет!`,
+      player: publicPlayer(updated.rows[0])
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
   }
+});
 
-  return res.status(401).json({
-    error: "Открой AKIRA через Telegram-бота."
+app.get("/api/leaderboard", async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT name, username, balance, total_earned
+       FROM players
+       ORDER BY total_earned DESC, balance DESC
+       LIMIT 50`
+    );
+
+    res.json({
+      ok: true,
+      players: result.rows.map((player, index) => ({
+        rank: index + 1,
+        name: player.name || player.username || "Игрок",
+        balance: Number(player.balance || 0),
+        total_earned: Number(player.total_earned || 0),
+        score: Number(player.total_earned || 0)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/tasks", (req, res) => {
+  res.json({ ok: true, tasks: [] });
+});
+
+app.post("/api/tasks/claim", (req, res) => {
+  res.status(501).json({ error: "Задания пока не настроены" });
+});
+
+app.post("/api/minigame/start", (req, res) => {
+  res.status(501).json({ error: "Мини-игра пока не настроена" });
+});
+
+app.post("/api/minigame/finish", (req, res) => {
+  res.status(501).json({ error: "Мини-игра пока не настроена" });
+});
+
+// Статические файлы Mini App.
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Маршрут не найден",
+    path: req.path
   });
-}
+});
 
-// ========================================
-// ИНИЦИАЛИЗАЦИЯ БАЗЫ И МИГРАЦИИ
-// ========================================
+app.use((error, req, res, next) => {
+  console.error("[AKIRA SERVER]", error);
 
-async function initDb() {
+  if (res.headersSent) return next(error);
+
+  res.status(500).json({
+    error: "Внутренняя ошибка сервера"
+  });
+});
+
+async function start() {
+  // Создаём таблицу, если её ещё нет.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS players (
-      telegram_id BIGINT PRIMARY KEY,
-      name TEXT NOT NULL DEFAULT 'Игрок',
-      coins BIGINT NOT NULL DEFAULT 0,
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT UNIQUE,
+      username TEXT DEFAULT 'Игрок',
+      name TEXT DEFAULT 'Игрок',
+      balance BIGINT NOT NULL DEFAULT 0,
       total_earned BIGINT NOT NULL DEFAULT 0,
       click_power INTEGER NOT NULL DEFAULT 1,
       auto_level INTEGER NOT NULL DEFAULT 0,
       multiplier_level INTEGER NOT NULL DEFAULT 0,
-      streak INTEGER NOT NULL DEFAULT 0,
       last_daily DATE,
-      xp BIGINT NOT NULL DEFAULT 0,
-      total_clicks BIGINT NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      auto_last_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS name
-      TEXT NOT NULL DEFAULT 'Игрок';
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS coins
-      BIGINT NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS total_earned
-      BIGINT NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS click_power
-      INTEGER NOT NULL DEFAULT 1;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS auto_level
-      INTEGER NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS multiplier_level
-      INTEGER NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS streak
-      INTEGER NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS last_daily DATE;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS xp
-      BIGINT NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS total_clicks
-      BIGINT NOT NULL DEFAULT 0;
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS created_at
-      TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS updated_at
-      TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    ALTER TABLE players
-      ADD COLUMN IF NOT EXISTS auto_last_at
-      TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
-    CREATE TABLE IF NOT EXISTS earnings (
-      id BIGSERIAL PRIMARY KEY,
-      telegram_id BIGINT NOT NULL
-        REFERENCES players(telegram_id)
-        ON DELETE CASCADE,
-      amount BIGINT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS task_claims (
-      id BIGSERIAL PRIMARY KEY,
-      telegram_id BIGINT NOT NULL
-        REFERENCES players(telegram_id)
-        ON DELETE CASCADE,
-      task_key TEXT NOT NULL,
-      claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE (telegram_id, task_key)
-    );
-
-    CREATE INDEX IF NOT EXISTS earnings_player_date_idx
-      ON earnings (telegram_id, created_at DESC);
+    )
   `);
 
-  console.log("AKIRA database initialized");
+  // Добавляем отсутствующие поля, не удаляя данные.
+  await pool.query(`
+    ALTER TABLE players
+      ADD COLUMN IF NOT EXISTS telegram_id TEXT,
+      ADD COLUMN IF NOT EXISTS username TEXT DEFAULT 'Игрок',
+      ADD COLUMN IF NOT EXISTS name TEXT DEFAULT 'Игрок',
+      ADD COLUMN IF NOT EXISTS balance BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_earned BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS click_power INTEGER NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS auto_level INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS last_daily DATE,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS players_telegram_id_unique
+    ON players (telegram_id)
+    WHERE telegram_id IS NOT NULL
+  `);
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`AKIRA server started on port ${PORT}`);
+  });
 }
 
-async function getPlayer(id) {
-  const result = await pool.query(
-    `SELECT *
-     FROM players
-     WHERE telegram_id = $1`,
-    [String(id)]
-  );
-
-  return result.rows[0];
-}
-
-function clickReward(player) {
-  return (
-    Math.max(1, Number(player.click_power || 1)) *
-    Math.max(
-      1,
-      Math.pow(
-        2,
-        Number(player.multiplier_level || 0)
-      )
-    )
-  );
-}
-
-// ========================================
-// СОСТОЯНИЕ
-// ========================================
-
-app.get("/api/state", auth, async (req, res) => {
-  try {
-    const player = await getPlayer(
-      req.player.telegram_id
-    );
-
-    res.json(safePlayer(player));
-  } catch (e) {
-    console.error("state:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось загрузить данные игрока."
-    });
-  }
+start().catch(error => {
+  console.error("Failed to start AKIRA:", error);
+  process.exit(1);
 });
-
-// ========================================
-// РУЧНОЙ КЛИК
-// ========================================
-
-app.post("/api/click", auth, async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const selected = await client.query(
-      `SELECT *
-       FROM players
-       WHERE telegram_id = $1
-       FOR UPDATE`,
-      [String(req.player.telegram_id)]
-    );
-
-    const player = selected.rows[0];
-
-    if (!player) {
-      throw new Error("Игрок не найден.");
-    }
-
-    const reward = clickReward(player);
-
-    const result = await client.query(
-      `UPDATE players
-       SET coins = coins + $2,
-           total_earned = total_earned + $2,
-           xp = xp + 1,
-           total_clicks = total_clicks + 1,
-           updated_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING *`,
-      [
-        String(req.player.telegram_id),
-        reward
-      ]
-    );
-
-    await client.query(
-      `INSERT INTO earnings (telegram_id, amount)
-       VALUES ($1, $2)`,
-      [
-        String(req.player.telegram_id),
-        reward
-      ]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      ...safePlayer(result.rows[0]),
-      gained: reward,
-      gainedXp: 1
-    });
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("click:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось сохранить клик."
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// ========================================
-// УЛУЧШЕНИЯ
-// ========================================
-
-app.get("/api/upgrades", auth, async (req, res) => {
-  try {
-    const p = await getPlayer(
-      req.player.telegram_id
-    );
-
-    if (!p) {
-      return res.status(404).json({
-        error: "Игрок не найден."
-      });
-    }
-
-    const levels = {
-      click: Math.max(
-        0,
-        Number(p.click_power || 1) - 1
-      ),
-      auto: Number(p.auto_level || 0),
-      multiplier: Number(p.multiplier_level || 0)
-    };
-
-    const result = {};
-
-    for (const [key, config] of Object.entries(UPGRADES)) {
-      const level = levels[key];
-
-      const cost = Math.floor(
-        config.base * Math.pow(config.factor, level)
-      );
-
-      result[key] = {
-        level,
-        cost,
-        max: level >= config.max,
-        affordable: Number(p.coins) >= cost
-      };
-    }
-
-    res.json(result);
-  } catch (e) {
-    console.error("upgrades:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось загрузить улучшения."
-    });
-  }
-});
-
-// ========================================
-// ПОКУПКА УЛУЧШЕНИЯ
-// ========================================
-
-app.post("/api/buy", auth, async (req, res) => {
-  const key = String(
-    req.body?.upgrade ||
-    req.body?.type ||
-    ""
-  );
-
-  const config = UPGRADES[key];
-
-  if (!config) {
-    return res.status(400).json({
-      error: "Неизвестное улучшение."
-    });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const r = await client.query(
-      `SELECT *
-       FROM players
-       WHERE telegram_id = $1
-       FOR UPDATE`,
-      [String(req.player.telegram_id)]
-    );
-
-    const p = r.rows[0];
-
-    if (!p) {
-      throw new Error("Игрок не найден.");
-    }
-
-    const level =
-      key === "click"
-        ? Math.max(
-            0,
-            Number(p.click_power || 1) - 1
-          )
-        : key === "auto"
-          ? Number(p.auto_level || 0)
-          : Number(p.multiplier_level || 0);
-
-    if (level >= config.max) {
-      await client.query("ROLLBACK");
-
-      return res.status(400).json({
-        error: "Уже достигнут максимальный уровень."
-      });
-    }
-
-    const cost = Math.floor(
-      config.base * Math.pow(config.factor, level)
-    );
-
-    if (Number(p.coins) < cost) {
-      await client.query("ROLLBACK");
-
-      return res.status(400).json({
-        error: "Недостаточно монет."
-      });
-    }
-
-    const updated = await client.query(
-      `UPDATE players
-       SET coins = coins - $2,
-           ${config.column} = ${config.column} + 1,
-           updated_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING *`,
-      [
-        String(req.player.telegram_id),
-        cost
-      ]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      ...safePlayer(updated.rows[0]),
-      message: "Улучшение куплено!"
-    });
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("buy:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось купить улучшение."
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// ========================================
-// ЕЖЕДНЕВНАЯ НАГРАДА
-// ========================================
-
-app.post("/api/daily", auth, async (req, res) => {
-  const id = String(req.player.telegram_id);
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const r = await client.query(
-      `SELECT *,
-              CURRENT_DATE AS today
-       FROM players
-       WHERE telegram_id = $1
-       FOR UPDATE`,
-      [id]
-    );
-
-    const p = r.rows[0];
-
-    if (!p) {
-      throw new Error("Игрок не найден.");
-    }
-
-    const today = String(p.today).slice(0, 10);
-
-    const last = p.last_daily
-      ? String(p.last_daily).slice(0, 10)
-      : null;
-
-    if (last === today) {
-      await client.query("ROLLBACK");
-
-      return res.status(400).json({
-        error: "Ежедневная награда уже получена."
-      });
-    }
-
-    const yesterday = await client.query(
-      "SELECT ($1::date - $2::date) AS difference",
-      [today, last || today]
-    );
-
-    const streak =
-      last &&
-      Number(yesterday.rows[0].difference) === 1
-        ? Number(p.streak) + 1
-        : 1;
-
-    const reward =
-      DAILY_REWARDS[
-        (streak - 1) % DAILY_REWARDS.length
-      ];
-
-    const updated = await client.query(
-      `UPDATE players
-       SET coins = coins + $2,
-           total_earned = total_earned + $2,
-           xp = xp + 25,
-           streak = $3,
-           last_daily = $4,
-           updated_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING *`,
-      [id, reward, streak, today]
-    );
-
-    await client.query(
-      `INSERT INTO earnings (telegram_id, amount)
-       VALUES ($1, $2)`,
-      [id, reward]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      ...safePlayer(updated.rows[0]),
-      gained: reward,
-      gainedXp: 25,
-      message: `+${reward} монет и +25 XP!`
-    });
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("daily:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось получить награду."
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// ========================================
-// РЕЙТИНГ
-// ========================================
-
-app.get("/api/leaderboard", auth, async (req, res) => {
-  const period = String(
-    req.query.period || "week"
-  );
-
-  const intervals = {
-    week: "7 days",
-    month: "30 days",
-    year: "365 days"
-  };
-
-  const interval = intervals[period];
-
-  if (!interval) {
-    return res.status(400).json({
-      error: "Неверный период рейтинга."
-    });
-  }
-
-  try {
-    const result = await pool.query(
-      `SELECT
-         p.telegram_id,
-         p.name,
-         COALESCE(SUM(e.amount), 0) AS score
-       FROM players p
-       LEFT JOIN earnings e
-         ON e.telegram_id = p.telegram_id
-         AND e.created_at >= NOW() - $1::interval
-       GROUP BY p.telegram_id, p.name
-       ORDER BY score DESC, p.name ASC
-       LIMIT 100`,
-      [interval]
-    );
-
-    res.json(
-      result.rows.map((p, i) => ({
-        rank: i + 1,
-        name: p.name,
-        score: Number(p.score)
-      }))
-    );
-  } catch (e) {
-    console.error("leaderboard:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось загрузить рейтинг."
-    });
-  }
-});
-
-// ========================================
-// ЗАДАНИЯ
-// ========================================
-
-function taskList(p, claims) {
-  const claimed = new Set(claims);
-  const level = levelFromXp(Number(p.xp)).level;
-
-  return [
-    {
-      key: "click_50",
-      title: "Разминка",
-      description: "Сделай 50 кликов",
-      progress: Math.min(
-        50,
-        Number(p.total_clicks)
-      ),
-      goal: 50,
-      coins: 100,
-      xp: 50,
-      completed: Number(p.total_clicks) >= 50
-    },
-    {
-      key: "earn_1000",
-      title: "Первая тысяча",
-      description: "Заработай 1 000 монет за всё время",
-      progress: Math.min(
-        1000,
-        Number(p.total_earned)
-      ),
-      goal: 1000,
-      coins: 250,
-      xp: 100,
-      completed: Number(p.total_earned) >= 1000
-    },
-    {
-      key: "subscribe_channel",
-      title: "Поддержи AKIRA",
-      description: "Подпишись на Telegram-канал",
-      progress: 0,
-      goal: 1,
-      coins: 500,
-      xp: 300,
-      completed: false,
-      subscription: true
-    },
-    {
-      key: "level_5",
-      title: "Новичок",
-      description: "Достигни 5 уровня",
-      progress: Math.min(5, level),
-      goal: 5,
-      coins: 500,
-      xp: 150,
-      completed: level >= 5
-    }
-  ].map(task => ({
-    ...task,
-    claimed: claimed.has(task.key)
-  }));
-}
-
-app.get("/api/tasks", auth, async (req, res) => {
-  try {
-    const p = await getPlayer(
-      req.player.telegram_id
-    );
-
-    const claims = await pool.query(
-      `SELECT task_key
-       FROM task_claims
-       WHERE telegram_id = $1`,
-      [String(req.player.telegram_id)]
-    );
-
-    res.json({
-      tasks: taskList(
-        p,
-        claims.rows.map(r => r.task_key)
-      ),
-      channelUrl: CHANNEL_URL
-    });
-  } catch (e) {
-    console.error("tasks:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось загрузить задания."
-    });
-  }
-});
-
-// ========================================
-// ПОЛУЧЕНИЕ НАГРАДЫ ЗА ЗАДАНИЕ
-// ========================================
-
-app.post("/api/tasks/claim", auth, async (req, res) => {
-  const key = String(req.body?.key || "");
-  const id = String(req.player.telegram_id);
-
-  const rewards = {
-    click_50: { coins: 100, xp: 50 },
-    earn_1000: { coins: 250, xp: 100 },
-    subscribe_channel: { coins: 500, xp: 300 },
-    level_5: { coins: 500, xp: 150 }
-  };
-
-  if (!rewards[key]) {
-    return res.status(400).json({
-      error: "Неизвестное задание."
-    });
-  }
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const r = await client.query(
-      `SELECT *
-       FROM players
-       WHERE telegram_id = $1
-       FOR UPDATE`,
-      [id]
-    );
-
-    const p = r.rows[0];
-
-    if (!p) {
-      throw new Error("Игрок не найден.");
-    }
-
-    const existing = await client.query(
-      `SELECT 1
-       FROM task_claims
-       WHERE telegram_id = $1
-         AND task_key = $2`,
-      [id, key]
-    );
-
-    if (existing.rowCount) {
-      await client.query("ROLLBACK");
-
-      return res.status(409).json({
-        error: "Награда за это задание уже получена."
-      });
-    }
-
-    if (
-      key === "click_50" &&
-      Number(p.total_clicks) < 50
-    ) {
-      throw new Error("Сначала сделай 50 кликов.");
-    }
-
-    if (
-      key === "earn_1000" &&
-      Number(p.total_earned) < 1000
-    ) {
-      throw new Error(
-        "Сначала заработай 1 000 монет."
-      );
-    }
-
-    if (
-      key === "level_5" &&
-      levelFromXp(Number(p.xp)).level < 5
-    ) {
-      throw new Error("Сначала достигни 5 уровня.");
-    }
-
-    if (key === "subscribe_channel") {
-      if (!BOT_TOKEN || !REQUIRED_CHANNEL) {
-        throw new Error(
-          "Администратору нужно настроить REQUIRED_CHANNEL в Render."
-        );
-      }
-
-      const response = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/getChatMember` +
-        `?chat_id=${encodeURIComponent(REQUIRED_CHANNEL)}` +
-        `&user_id=${encodeURIComponent(id)}`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(
-          "Не удалось проверить подписку. Проверь настройки канала."
-        );
-      }
-
-      const status = data.result?.status;
-
-      const subscribed =
-        ["member", "administrator", "creator"].includes(status) ||
-        (
-          status === "restricted" &&
-          data.result?.is_member === true
-        );
-
-      if (!subscribed) {
-        throw new Error(
-          "Подпишись на канал и нажми проверить ещё раз."
-        );
-      }
-    }
-
-    const reward = rewards[key];
-
-    await client.query(
-      `INSERT INTO task_claims (telegram_id, task_key)
-       VALUES ($1, $2)`,
-      [id, key]
-    );
-
-    const updated = await client.query(
-      `UPDATE players
-       SET coins = coins + $2,
-           total_earned = total_earned + $2,
-           xp = xp + $3,
-           updated_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING *`,
-      [id, reward.coins, reward.xp]
-    );
-
-    await client.query(
-      `INSERT INTO earnings (telegram_id, amount)
-       VALUES ($1, $2)`,
-      [id, reward.coins]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      ...safePlayer(updated.rows[0]),
-      gained: reward.coins,
-      gainedXp: reward.xp,
-      message:
-        `+${reward.coins} монет и +${reward.xp} XP!`
-    });
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-
-    console.error("task claim:", e.message);
-
-    const clientError =
-      /Сначала|Подпишись|настроить REQUIRED_CHANNEL|Не удалось проверить подписку/.test(
-        e.message
-      );
-
-    res.status(clientError ? 400 : 500).json({
-      error:
-        e.message ||
-        "Не удалось получить награду."
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// ========================================
-// МИНИ-ИГРА
-// ========================================
-
-const activeGames = new Map();
-
-app.post("/api/minigame/start", auth, async (req, res) => {
-  const id = String(req.player.telegram_id);
-
-  const challengeId = crypto.randomBytes(16).toString("hex");
-  const waitMs = crypto.randomInt(1800, 4500);
-
-  activeGames.set(id, {
-    challengeId,
-    readyAt: Date.now() + waitMs,
-    expiresAt: Date.now() + waitMs + 10000
-  });
-
-  res.json({
-    challengeId,
-    waitMs
-  });
-});
-
-app.post("/api/minigame/finish", auth, async (req, res) => {
-  const id = String(req.player.telegram_id);
-  const game = activeGames.get(id);
-
-  if (
-    !game ||
-    req.body?.challengeId !== game.challengeId
-  ) {
-    return res.status(400).json({
-      error: "Начни новый раунд."
-    });
-  }
-
-  if (Date.now() < game.readyAt) {
-    return res.status(400).json({
-      error: "Слишком рано! Дождись сигнала."
-    });
-  }
-
-  if (Date.now() > game.expiresAt) {
-    activeGames.delete(id);
-
-    return res.status(400).json({
-      error: "Время раунда истекло."
-    });
-  }
-
-  activeGames.delete(id);
-
-  const coins = crypto.randomInt(40, 101);
-  const xp = 15;
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    const result = await client.query(
-      `UPDATE players
-       SET coins = coins + $2,
-           total_earned = total_earned + $2,
-           xp = xp + $3,
-           updated_at = NOW()
-       WHERE telegram_id = $1
-       RETURNING *`,
-      [id, coins, xp]
-    );
-
-    if (!result.rows[0]) {
-      throw new Error("Игрок не найден.");
-    }
-
-    await client.query(
-      `INSERT INTO earnings (telegram_id, amount)
-       VALUES ($1, $2)`,
-      [id, coins]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      ...safePlayer(result.rows[0]),
-      gained: coins,
-      gainedXp: xp,
-      message: `+${coins} монет и +${xp} XP!`
-    });
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("minigame finish:", e.message);
-
-    res.status(500).json({
-      error: "Не удалось сохранить награду."
-    });
-  } finally {
-    client.release();
-  }
-});
-
-// ========================================
-// ПРОВЕРКА СЕРВЕРА
-// ========================================
-
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
-});
-
-// ========================================
-// ГЛАВНАЯ СТРАНИЦА
-// ========================================
-
-app.get("*", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "public", "index.html")
-  );
-});
-
-// ========================================
-// ОБРАБОТКА ОШИБОК
-// ========================================
-
-app.use((err, req, res, next) => {
-  console.error("Server error:", err.message);
-
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  res.status(500).json({
-    error: "Внутренняя ошибка сервера."
-  });
-});
-
-// ========================================
-// ЗАПУСК
-// ========================================
-
-initDb()
-  .then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`AKIRA listening on ${PORT}`);
-    });
-  })
-  .catch(error => {
-    console.error(
-      "Database initialization failed:",
-      error
-    );
-
-    process.exit(1);
-  });
