@@ -4,13 +4,13 @@ const API_BASE = "/api";
 
 const THEMES = ["crimson", "midnight", "ocean", "emerald"];
 const DEFAULT_THEME = "crimson";
-const TABS = ["shop", "top", "profile", "themes", "games"];
+const TABS = ["home", "shop", "top", "profile", "themes", "games"];
 
 const state = {
   player: {},
   prices: {},
   loading: false,
-  currentTab: "shop",
+  currentTab: "home",
   selectedGame: null,
   gameMode: "bot",
 };
