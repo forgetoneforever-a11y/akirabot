@@ -3,6 +3,8 @@
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const http = require("http");
+const gameServer = require("./public/game-server");
 const { Pool } = require("pg");
 
 const app = express();
@@ -766,7 +768,16 @@ async function start() {
     ON players (telegram_id) WHERE telegram_id IS NOT NULL
   `);
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = http.createServer(app);
+  gameServer.attach(httpServer, {
+    cors: { origin: false },
+    verifyPlayer: ({ playerId, initData }) => {
+      const auth = verifyTelegramInitData(initData);
+      if (!auth.valid || String(auth.user.id) !== String(playerId)) return false;
+      return { id: String(auth.user.id) };
+    },
+  });
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`AKIRA server started on port ${PORT}`);
   });
   telegramPollingLoop();
