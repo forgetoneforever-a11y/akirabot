@@ -643,59 +643,83 @@
       !state.active ||
       state.finished ||
       state.mode !== "bot" ||
+      !state.game ||
       state.game.turn() === state.playerColor
     ) {
       return;
     }
 
     state.thinking = true;
-
     setStatus("Бот думает…");
     setControlsEnabled(false);
 
+    const scheduledGame = state.game;
     state.botTimer = setTimeout(() => {
-      if (!state.active || state.finished || !state.game) {
+      // Ignore a stale timer if the user restarted or switched games.
+      if (
+        scheduledGame !== state.game ||
+        !state.active ||
+        state.finished ||
+        state.mode !== "bot"
+      ) {
         state.thinking = false;
         return;
       }
 
-      let move;
+      // The bot must only move when it is actually its turn.
+      if (state.game.turn() === state.playerColor) {
+        state.thinking = false;
+        renderBoard();
+        setStatus("Твой ход.");
+        return;
+      }
+
       let result = null;
-
       try {
-        move = chooseBotMove();
-        if (move) {
-          result = state.game.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q",
-          });
-        }
+        const legalMoves = state.game.moves({ verbose: true });
+        if (legalMoves.length) {
+          let chosen = legalMoves[Math.floor(Math.random() * legalMoves.length)];
 
-        // Надёжный запасной вариант: если оценка позиции не смогла выбрать ход,
-        // выполняем случайный легальный ход из списка chess.js.
-        if (!result && state.game && !state.game.game_over()) {
-          const fallbackMoves = state.game.moves({ verbose: true });
-          if (fallbackMoves.length) {
-            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({
-              from: fallback.from,
-              to: fallback.to,
-              promotion: fallback.promotion || "q",
-            });
+          // Medium/hard prefer captures, promotions, checks and checkmates,
+          // but always keep a random legal move as a safe fallback.
+          if (state.difficulty !== "easy") {
+            const ranked = legalMoves.map((move) => ({
+              move,
+              score:
+                (move.captured ? 100 : 0) +
+                (move.promotion ? 80 : 0) +
+                (move.san?.includes("#") ? 10000 : 0) +
+                (move.san?.includes("+") ? 20 : 0) +
+                Math.random() * (state.difficulty === "hard" ? 5 : 30),
+            })).sort((a, b) => b.score - a.score);
+            const pool = state.difficulty === "hard"
+              ? ranked.slice(0, Math.min(3, ranked.length))
+              : ranked.slice(0, Math.min(6, ranked.length));
+            chosen = pool[Math.floor(Math.random() * pool.length)].move;
+          }
+
+          result = state.game.move({
+            from: chosen.from,
+            to: chosen.to,
+            promotion: chosen.promotion || "q",
+          });
+
+          // If a preferred move is rejected by the installed chess.js version,
+          // retry with a fresh legal move from the current position.
+          if (!result) {
+            const fallbackMoves = state.game.moves({ verbose: true });
+            if (fallbackMoves.length) {
+              const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
+              result = state.game.move({
+                from: fallback.from,
+                to: fallback.to,
+                promotion: fallback.promotion || "q",
+              });
+            }
           }
         }
       } catch (error) {
         console.error("[AKIRA Chess] Ошибка хода бота:", error);
-        try {
-          const fallbackMoves = state.game && state.game.moves({ verbose: true });
-          if (fallbackMoves && fallbackMoves.length) {
-            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || "q" });
-          }
-        } catch (fallbackError) {
-          console.error("[AKIRA Chess] Запасной ход тоже не удался:", fallbackError);
-        }
       }
 
       state.thinking = false;
@@ -704,21 +728,16 @@
         if (state.game && state.game.game_over()) {
           checkGameOver();
         } else {
-          setStatus("Не удалось выполнить ход бота. Нажми «Новая партия».");
           renderBoard();
           setControlsEnabled(true);
+          setStatus("Бот не смог выбрать ход. Нажми «Новая партия» и попробуй ещё раз.");
         }
         return;
       }
 
-      state.history.push(result);
-      state.lastMove = {
-        from: result.from,
-        to: result.to,
-      };
-
-      state.moveCount += 1;
-
+      state.history = state.game.history({ verbose: true });
+      state.lastMove = { from: result.from, to: result.to };
+      state.moveCount = state.history.length;
       renderBoard();
 
       if (checkGameOver()) return;
