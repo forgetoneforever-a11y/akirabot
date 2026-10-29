@@ -1554,3 +1554,67 @@ textarea::placeholder {
     transition-duration: .01ms !important;
   }
 }
+
+
+
+/* Compact leaderboard rows and circular player avatars */
+#leaderboard .leaderboard-row {
+  display: grid;
+  grid-template-columns: 34px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 68px;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+#leaderboard .leaderboard-rank {
+  color: var(--muted, #aab5c5);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  white-space: nowrap;
+}
+#leaderboard .leaderboard-avatar {
+  display: block;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  border: 2px solid var(--border, rgba(255,255,255,.18));
+  background: rgba(255,255,255,.06);
+}
+#leaderboard .leaderboard-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text, #fff);
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#leaderboard .leaderboard-score {
+  color: var(--muted, #aab5c5);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+@media (max-width: 380px) {
+  #leaderboard .leaderboard-row {
+    grid-template-columns: 28px 38px minmax(0, 1fr) auto;
+    gap: 7px;
+    padding: 9px;
+  }
+  #leaderboard .leaderboard-avatar {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    max-width: 38px;
+  }
+  #leaderboard .leaderboard-name { font-size: 12px; }
+  #leaderboard .leaderboard-score { font-size: 11px; }
+}
