@@ -274,6 +274,8 @@ async function loadCollection(){
   const cookieButton=$("#cookie-button");
   if(cookieButton&&currentSkin)cookieButton.textContent=currentSkin.emoji;
   const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+data.skins.length;
+  const shards=$("#shards-balance");if(shards)shards.textContent=formatNumber(data.shards||0);
+  const setBonus=$("#skin-set-bonus");if(setBonus)setBonus.textContent="Бонус коллекции: ×"+Number(data.set_bonus||1).toFixed(2);
   data.skins.forEach(skin=>{
    const item=data.owned.find(row=>row.skin_id===skin.id);
    const card=document.createElement("div");card.className="skin-card rarity-"+skin.rarity+(item?" owned":" locked")+(skin.id===equipped?" equipped":"");
@@ -292,7 +294,7 @@ async function openCase(caseId,button){
  try{
   const data=await api("/cases/open",{method:"POST",body:JSON.stringify({case_id:caseId})});
   renderState({player:data.player});
-  if(result){result.className="case-result rarity-"+data.skin.rarity;result.textContent=(data.duplicate?"🔁 Дубликат! ":"✨ Новый предмет! ")+data.skin.emoji+" "+data.skin.name+" — "+data.skin.label;}
+  if(result){result.className="case-result rarity-"+data.skin.rarity;result.textContent=(data.duplicate?"🔁 Дубликат! +"+(data.shards_awarded||0)+" 💠 ":"✨ Новый предмет! ")+data.skin.emoji+" "+data.skin.name+" — "+data.skin.label;}
   await loadCollection();
  }catch(error){if(result){result.className="case-result error";result.textContent=error.message||"Не удалось открыть кейс";}else showToast(error.message);}
  finally{if(button)button.disabled=false;}
@@ -302,6 +304,7 @@ async function equipSkin(skinId){
  catch(error){showToast(error.message||"Не удалось надеть скин");}
 }
 
+async function loadFriends(){const el=$("#friends-list");if(!el)return;try{const d=await api("/friends");el.replaceChildren();if(!d.friends.length){el.textContent="Пока нет друзей. Найди игрока выше.";return;}d.friends.forEach(f=>{const row=document.createElement("div");row.className="friend-row";const info=document.createElement("div");info.className="friend-info";const name=document.createElement("strong");name.textContent=f.name||f.username;const detail=document.createElement("span");detail.textContent="@"+f.username+" · "+formatNumber(f.balance)+" 🍪";info.append(name,detail);const b=document.createElement("button");b.className="buy-button";b.textContent="Подарить";b.type="button";b.addEventListener("click",async()=>{const raw=prompt("Сколько печенек подарить? (100–100 000)","500");if(raw===null)return;const amount=Number(raw),request_id=crypto.randomUUID?crypto.randomUUID():"gift-"+Date.now()+"-"+Math.random().toString(36).slice(2);b.disabled=true;try{const r=await api("/friends/gift",{method:"POST",body:{telegram_id:f.telegram_id,amount,request_id}});renderState({player:r.player});showToast("Подарено "+formatNumber(amount)+" 🍪");loadFriends();}catch(e){showToast(e.message||"Ошибка подарка");}finally{b.disabled=false;}});row.append(info,b);el.append(row);});}catch(e){el.textContent=e.message||"Не удалось загрузить друзей";}} async function searchFriend(){const input=$("#friend-username"),out=$("#friend-search-result");if(!input||!out)return;out.textContent="Ищем…";try{const d=await api("/friends/search?username="+encodeURIComponent(input.value.trim().replace(/^@/,"")));out.replaceChildren();if(!d.player){out.textContent="Игрок не найден. Он должен открыть Mini App хотя бы раз.";return;}const row=document.createElement("div");row.className="friend-row";const label=document.createElement("span");label.textContent=(d.player.name||d.player.username)+" @"+d.player.username;const b=document.createElement("button");b.className="buy-button";b.textContent="Добавить";b.addEventListener("click",async()=>{try{await api("/friends/add",{method:"POST",body:{telegram_id:d.player.telegram_id}});out.textContent="Добавлен в друзья!";loadFriends();}catch(e){showToast(e.message);}});row.append(label,b);out.append(row);}catch(e){out.textContent=e.message||"Ошибка поиска";}}
 async function performPrestige(){
  const player=getPlayer();const required=Math.floor(1000000*Math.pow(2,Number(player.prestige_level||0)));
  if(Number(player.balance||0)<required){showToast("Пока недостаточно печенек");return;}
@@ -450,6 +453,7 @@ function createClickPopup(event, reward) {
   setTimeout(() => popup.remove(), 800);
 }
 
+function animateCookieClick(e){const b=$("#cookie-button");if(!b)return;b.classList.remove("akira-click-pop");void b.offsetWidth;b.classList.add("akira-click-pop");const r=b.getBoundingClientRect(),x=e?.clientX??r.left+r.width/2,y=e?.clientY??r.top+r.height/2,s=document.createElement("span");s.className="akira-click-spark";s.textContent=["✨","+🍪","✦","💫"][Math.floor(Math.random()*4)];s.style.left=x+"px";s.style.top=y+"px";s.style.setProperty("--dx",(Math.random()*70-35)+"px");s.style.setProperty("--dy",(Math.random()*65+30)+"px");document.body.append(s);setTimeout(()=>s.remove(),750);}
 async function clickCookie(event) {
   if (state.loading) return;
 
@@ -891,7 +895,7 @@ function startSelectedGame(mode) {
 ========================= */
 
 function initEventHandlers() {
-  $("#cookie-button")?.addEventListener("click", clickCookie);
+  $("#cookie-button")?.addEventListener("click",e=>{animateCookieClick(e);clickCookie(e);});
 
   $$("[data-upgrade]").forEach((button) => {
     button.addEventListener("click", () => buyUpgrade(button.dataset.upgrade));
@@ -908,6 +912,9 @@ function initEventHandlers() {
   $("#daily-button")?.addEventListener("click", claimDailyReward);
   $("#prestige-button")?.addEventListener("click", performPrestige);
   $("#daily-shop-button")?.addEventListener("click", () => switchTab("profile"));
+  $("#friend-search-button")?.addEventListener("click", searchFriend);
+  $("#friend-username")?.addEventListener("keydown",e=>{if(e.key==="Enter")searchFriend();});
+  $("#friends-refresh")?.addEventListener("click",loadFriends);
 }
 
 /* =========================
@@ -933,6 +940,7 @@ function init() {
 
   initThemes();
   initEventHandlers();
+  loadFriends();
   loadFriends();
   loadCollection();
   initSwipeNavigation();
