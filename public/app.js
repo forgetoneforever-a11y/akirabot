@@ -1,51 +1,48 @@
-
 (() => {
   "use strict";
 
   const API = "/api";
-
-  const state = {
-    player: null,
-    tasks: [],
-    leaderboard: [],
-    busy: false,
-    minigame: null,
-    refreshTimer: null
-  };
-
   const $ = (selector) => document.querySelector(selector);
-
   const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-  function formatNumber(value) {
-    return Math.floor(Number(value) || 0).toLocaleString("ru-RU");
-  }
+  let player = null;
+  let busy = false;
+  let refreshTimer = null;
 
-  function getPlayer() {
-    return state.player || {};
-  }
+  const tasks = [];
+  const leaderboard = [];
 
-  function getTelegram() {
-    return window.Telegram?.WebApp || null;
-  }
+  // -----------------------------
+  // TELEGRAM
+  // -----------------------------
 
-  function initTelegram() {
-    const tg = getTelegram();
+  const tg = window.Telegram?.WebApp;
 
-    if (!tg) return;
-
+  if (tg) {
     tg.ready();
     tg.expand();
 
     try {
-      tg.setHeaderColor("#090909");
-      tg.setBackgroundColor("#090909");
+      tg.setHeaderColor("#09090d");
+      tg.setBackgroundColor("#09090d");
     } catch (_) {}
   }
 
-  async function api(path, options = {}) {
-    const tg = getTelegram();
+  function haptic(type = "light") {
+    try {
+      if (type === "success") {
+        tg?.HapticFeedback?.notificationOccurred("success");
+      } else {
+        tg?.HapticFeedback?.impactOccurred(type);
+      }
+    } catch (_) {}
+  }
 
+  // -----------------------------
+  // API
+  // -----------------------------
+
+  async function api(path, options = {}) {
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {})
@@ -55,7 +52,7 @@
       headers["X-Telegram-Init-Data"] = tg.initData;
     }
 
-    const response = await fetch(`${API}${path}`, {
+    const response = await fetch(API + path, {
       ...options,
       headers,
       cache: "no-store"
@@ -71,130 +68,180 @@
     }
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || `Ошибка ${response.status}`);
+      throw new Error(
+        data.error || data.message || `Ошибка сервера: ${response.status}`
+      );
     }
 
     return data;
   }
 
-  function setText(selectors, value) {
-    selectors.forEach((selector) => {
-      $$(selector).forEach((element) => {
-        element.textContent = value;
-      });
-    });
-  }
-
-  function setHTML(selectors, html) {
-    selectors.forEach((selector) => {
-      $$(selector).forEach((element) => {
-        element.innerHTML = html;
-      });
-    });
-  }
-
-  function setDisabled(selectors, disabled) {
-    selectors.forEach((selector) => {
-      $$(selector).forEach((element) => {
-        if ("disabled" in element) element.disabled = disabled;
-        element.classList.toggle("is-disabled", disabled);
-      });
-    });
-  }
-
-  function notify(message, type = "info") {
-    let toast = $("#akira-toast");
-
+  function showToast(message, type = "info") {
+    const toast = $("#toast");
     if (!toast) {
-      toast = document.createElement("div");
-      toast.id = "akira-toast";
-      toast.className = "akira-toast";
-      document.body.appendChild(toast);
+      console.log(message);
+      return;
     }
 
     toast.textContent = message;
+    toast.hidden = false;
     toast.dataset.type = type;
-    toast.classList.add("show");
 
-    clearTimeout(notify.timer);
+    clearTimeout(showToast.timer);
 
-    notify.timer = setTimeout(() => {
+    requestAnimationFrame(() => {
+      toast.classList.add("show");
+    });
+
+    showToast.timer = setTimeout(() => {
       toast.classList.remove("show");
+
+      setTimeout(() => {
+        toast.hidden = true;
+      }, 250);
     }, 2400);
   }
 
-  function haptic(style = "light") {
-    const tg = getTelegram();
+  function number(value) {
+    return Math.floor(Number(value) || 0).toLocaleString("ru-RU");
+  }
 
-    try {
-      if (style === "success") {
-        tg?.HapticFeedback?.notificationOccurred("success");
-      } else if (style === "error") {
-        tg?.HapticFeedback?.notificationOccurred("error");
-      } else {
-        tg?.HapticFeedback?.impactOccurred(style);
-      }
-    } catch (_) {}
+  function setText(selector, value) {
+    $$(selector).forEach((element) => {
+      element.textContent = value;
+    });
+  }
+
+  // -----------------------------
+  // PLAYER / BALANCE
+  // -----------------------------
+
+  function getClickReward() {
+    if (!player) return 1;
+
+    if (player.clickReward != null) {
+      return Number(player.clickReward);
+    }
+
+    return (
+      Number(player.click_power || 1) *
+      Math.pow(2, Number(player.multiplier_level || 0))
+    );
+  }
+
+  function getAutoPower() {
+    if (!player) return 0;
+
+    if (player.autoPowerPerSecond != null) {
+      return Number(player.autoPowerPerSecond);
+    }
+
+    return (
+      Number(player.auto_level || 0) *
+      Math.pow(2, Number(player.multiplier_level || 0))
+    );
   }
 
   function renderPlayer() {
-    const p = getPlayer();
+    if (!player) return;
 
-    const coins = formatNumber(p.coins);
-    const clickPower = formatNumber(p.clickReward ?? p.click_power ?? 1);
-    const autoPower = formatNumber(p.autoPowerPerSecond ?? 0);
+    const balance = number(player.coins);
+    const earned = number(player.total_earned);
+    const click = number(getClickReward());
+    const auto = number(getAutoPower());
 
-    setText(
-      ["#coins", "#balance", "#coinBalance", "[data-coins]", ".coins-value"],
-      coins
-    );
+    setText("#balance", balance);
+    setText("#total-earned", earned);
+    setText("#level", number(player.level || 1));
 
-    setText(
-      ["#clickPower", "#click-power", "[data-click-power]"],
-      clickPower
-    );
+    setText("#click-power", click);
+    setText("#auto-power", auto);
 
-    setText(
-      ["#autoPower", "#auto-power", "[data-auto-power]"],
-      `${autoPower}/сек`
-    );
+    setText("#player-name", player.name || "Игрок");
+    setText("#profile-balance", balance);
+    setText("#profile-earned", earned);
+    setText("#profile-click", click);
+    setText("#profile-auto", `${auto}/с`);
 
-    setText(
-      ["#totalEarned", "#total-earned", "[data-total-earned]"],
-      formatNumber(p.total_earned)
-    );
-
-    setText(
-      ["#totalClicks", "#total-clicks", "[data-total-clicks]"],
-      formatNumber(p.total_clicks)
-    );
-
-    setText(
-      ["#playerLevel", "#level", "[data-level]"],
-      formatNumber(p.level ?? 1)
-    );
-
-    setText(
-      ["#playerName", "#username", "[data-player-name]"],
-      p.name || "Игрок"
-    );
-
-    setText(
-      ["#streak", "#dailyStreak", "[data-streak]"],
-      formatNumber(p.streak)
-    );
-
-    renderUpgrades();
+    renderUpgradePrices();
   }
 
-  function createFloatingText(x, y, text, element) {
+  // -----------------------------
+  // UPGRADE PRICES
+  // -----------------------------
+
+  const upgradeConfig = {
+    click: {
+      base: 50,
+      factor: 1.65,
+      max: 100,
+      level: () => Number(player?.click_power || 1),
+      priceElement: "#finger-price"
+    },
+    auto: {
+      base: 250,
+      factor: 1.8,
+      max: 50,
+      level: () => Number(player?.auto_level || 0),
+      priceElement: "#auto-price"
+    },
+    multiplier: {
+      base: 1000,
+      factor: 2.1,
+      max: 25,
+      level: () => Number(player?.multiplier_level || 0),
+      priceElement: "#multiplier-price"
+    }
+  };
+
+  function upgradeCost(type) {
+    const config = upgradeConfig[type];
+    if (!config) return Infinity;
+
+    return Math.floor(
+      config.base * Math.pow(config.factor, config.level())
+    );
+  }
+
+  function renderUpgradePrices() {
+    if (!player) return;
+
+    Object.entries(upgradeConfig).forEach(([type, config]) => {
+      const level = config.level();
+      const maxed = level >= config.max;
+      const cost = upgradeCost(type);
+
+      setText(
+        config.priceElement,
+        maxed ? "МАКС." : number(cost)
+      );
+
+      $$(`[data-upgrade="${type}"]`).forEach((button) => {
+        button.disabled =
+          busy ||
+          maxed ||
+          Number(player.coins || 0) < cost;
+
+        button.classList.toggle("is-max", maxed);
+      });
+    });
+  }
+
+  // -----------------------------
+  // FLOATING +COINS
+  // -----------------------------
+
+  function showFloatingCoins(element, amount) {
+    if (!element) return;
+
+    const rect = element.getBoundingClientRect();
     const popup = document.createElement("div");
 
     popup.className = "click-popup";
-    popup.textContent = text;
+    popup.textContent = `+${number(amount)}`;
 
-    popup.style.left = `${x}px`;
-    popup.style.top = `${y}px`;
+    popup.style.left = `${rect.left + rect.width / 2}px`;
+    popup.style.top = `${rect.top + rect.height / 2}px`;
 
     document.body.appendChild(popup);
 
@@ -203,230 +250,24 @@
     });
 
     setTimeout(() => popup.remove(), 1000);
-
-    if (element) {
-      element.classList.remove("click-bounce");
-      void element.offsetWidth;
-      element.classList.add("click-bounce");
-
-      setTimeout(() => {
-        element.classList.remove("click-bounce");
-      }, 180);
-    }
   }
 
-  function floatingAtElement(element, text) {
-    const rect = element.getBoundingClientRect();
+  // -----------------------------
+  // CLICK COOKIE
+  // -----------------------------
 
-    createFloatingText(
-      rect.left + rect.width / 2,
-      rect.top + rect.height / 2,
-      text,
-      element
-    );
-  }
+  async function clickCookie() {
+    if (busy) return;
 
-  function renderUpgrades() {
-    const p = getPlayer();
-
-    const upgrades = [
-      {
-        type: "click",
-        level: Number(p.click_power || 1),
-        label: "Сила клика",
-        description: "Больше монет за нажатие",
-        base: 50,
-        factor: 1.65,
-        max: 100
-      },
-      {
-        type: "auto",
-        level: Number(p.auto_level || 0),
-        label: "Авто-кликер",
-        description: "Зарабатывает монеты со временем",
-        base: 250,
-        factor: 1.8,
-        max: 50
-      },
-      {
-        type: "multiplier",
-        level: Number(p.multiplier_level || 0),
-        label: "Множитель",
-        description: "Увеличивает доход",
-        base: 1000,
-        factor: 2.1,
-        max: 25
-      }
-    ];
-
-    upgrades.forEach((upgrade) => {
-      const cost = Math.floor(
-        upgrade.base * Math.pow(upgrade.factor, upgrade.level)
-      );
-
-      const isMax = upgrade.level >= upgrade.max;
-
-      const buttons = [
-        ...$$(`[data-upgrade="${upgrade.type}"]`),
-        ...$$(`#upgrade-${upgrade.type}`)
-      ];
-
-      buttons.forEach((button) => {
-        const price = button.querySelector(
-          "[data-upgrade-price], .upgrade-price, .price"
-        );
-
-        const level = button.querySelector(
-          "[data-upgrade-level], .upgrade-level"
-        );
-
-        const title = button.querySelector(
-          "[data-upgrade-title], .upgrade-title"
-        );
-
-        const description = button.querySelector(
-          "[data-upgrade-description], .upgrade-description"
-        );
-
-        if (price) {
-          price.textContent = isMax ? "МАКС." : formatNumber(cost);
-        }
-
-        if (level) {
-          level.textContent = `Ур. ${upgrade.level}`;
-        }
-
-        if (title) {
-          title.textContent = upgrade.label;
-        }
-
-        if (description) {
-          description.textContent = upgrade.description;
-        }
-
-        button.classList.toggle("is-max", isMax);
-        button.disabled = isMax || state.busy || Number(p.coins || 0) < cost;
-      });
-    });
-  }
-
-  function renderTasks() {
-    const container =
-      $("#tasksList") ||
-      $("#tasks-list") ||
-      $("#tasks") ||
-      $("[data-tasks-list]");
-
-    if (!container) return;
-
-    if (!state.tasks.length) {
-      container.innerHTML =
-        '<div class="empty-state">Пока нет доступных заданий</div>';
+    const button = $("#cookie-button");
+    if (!button) {
+      showToast("Не найдена кнопка печеньки", "error");
       return;
     }
 
-    container.innerHTML = "";
-
-    state.tasks.forEach((task) => {
-      const item = document.createElement("div");
-      item.className = "task-card";
-
-      const title = document.createElement("div");
-      title.className = "task-title";
-      title.textContent = task.title || task.name || "Задание";
-
-      const reward = document.createElement("div");
-      reward.className = "task-reward";
-      reward.textContent = `+${formatNumber(task.reward || 0)} монет`;
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "task-claim";
-      button.textContent = task.completed
-        ? "Получено"
-        : task.claimed
-          ? "Получено"
-          : "Забрать";
-
-      button.disabled = Boolean(task.completed || task.claimed);
-
-      button.addEventListener("click", async () => {
-        await claimTask(task, button);
-      });
-
-      item.append(title, reward, button);
-      container.appendChild(item);
-    });
-  }
-
-  function renderLeaderboard() {
-    const container =
-      $("#leaderboardList") ||
-      $("#leaderboard-list") ||
-      $("#leaderboard") ||
-      $("[data-leaderboard]");
-
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    if (!state.leaderboard.length) {
-      container.innerHTML =
-        '<div class="empty-state">Таблица лидеров пока пуста</div>';
-      return;
-    }
-
-    state.leaderboard.forEach((player, index) => {
-      const row = document.createElement("div");
-      row.className = "leaderboard-row";
-
-      const rank = document.createElement("span");
-      rank.className = "leaderboard-rank";
-      rank.textContent = `#${index + 1}`;
-
-      const name = document.createElement("span");
-      name.className = "leaderboard-name";
-      name.textContent = player.name || `Игрок ${index + 1}`;
-
-      const coins = document.createElement("span");
-      coins.className = "leaderboard-coins";
-      coins.textContent = formatNumber(player.coins);
-
-      row.append(rank, name, coins);
-      container.appendChild(row);
-    });
-  }
-
-  async function loadState() {
-    try {
-      const data = await api("/state");
-
-      state.player = data.player || data;
-      state.tasks = Array.isArray(data.tasks) ? data.tasks : state.tasks;
-
-      renderPlayer();
-      renderTasks();
-
-      return data;
-    } catch (error) {
-      console.error("AKIRA state:", error);
-      notify(error.message || "Не удалось загрузить данные", "error");
-      throw error;
-    }
-  }
-
-  async function clickCoin(event) {
-    if (state.busy) return;
-
-    const coin =
-      event.currentTarget ||
-      $("#coin") ||
-      $("#clicker") ||
-      $("#clickButton");
-
-    state.busy = true;
-
-    if (coin) coin.classList.add("loading");
+    busy = true;
+    button.classList.add("loading");
+    renderUpgradePrices();
 
     try {
       const data = await api("/click", {
@@ -435,13 +276,20 @@
       });
 
       if (data.player) {
-        state.player = data.player;
+        player = data.player;
       } else if (data.state?.player) {
-        state.player = data.state.player;
-      } else if (state.player) {
-        state.player.coins =
-          Number(state.player.coins || 0) +
-          Number(data.reward ?? data.earned ?? data.amount ?? 0);
+        player = data.state.player;
+      } else if (player) {
+        const reward = Number(
+          data.reward ?? data.earned ?? data.amount ?? getClickReward()
+        );
+
+        player.coins = Number(player.coins || 0) + reward;
+        player.total_earned =
+          Number(player.total_earned || 0) + reward;
+
+        player.total_clicks =
+          Number(player.total_clicks || 0) + 1;
       }
 
       const reward = Number(
@@ -449,32 +297,38 @@
         data.earned ??
         data.amount ??
         data.clickReward ??
-        0
+        getClickReward()
       );
 
       renderPlayer();
-
-      if (coin) {
-        floatingAtElement(coin, `+${formatNumber(reward)}`);
-      }
-
+      showFloatingCoins(button, reward);
       haptic("light");
     } catch (error) {
-      console.error("AKIRA click:", error);
-      notify(error.message || "Не удалось начислить монеты", "error");
-      haptic("error");
+      console.error("Click error:", error);
+      showToast(error.message || "Ошибка клика", "error");
     } finally {
-      state.busy = false;
-      if (coin) coin.classList.remove("loading");
-      renderUpgrades();
+      busy = false;
+      button.classList.remove("loading");
+      renderUpgradePrices();
     }
   }
 
-  async function buyUpgrade(type, button) {
-    if (state.busy) return;
+  // -----------------------------
+  // UPGRADES
+  // -----------------------------
 
-    state.busy = true;
-    renderUpgrades();
+  async function buyUpgrade(type, button) {
+    if (busy) return;
+
+    if (!upgradeConfig[type]) {
+      showToast("Неизвестное улучшение", "error");
+      return;
+    }
+
+    busy = true;
+    if (button) button.classList.add("loading");
+
+    renderUpgradePrices();
 
     try {
       const data = await api("/upgrades", {
@@ -482,52 +336,37 @@
         body: JSON.stringify({ type })
       });
 
-      if (data.player) state.player = data.player;
-      else if (data.state?.player) state.player = data.state.player;
+      if (data.player) {
+        player = data.player;
+      } else if (data.state?.player) {
+        player = data.state.player;
+      }
 
       await loadState();
 
-      notify(data.message || "Улучшение куплено!", "success");
+      showToast(data.message || "Улучшение куплено!", "success");
       haptic("success");
     } catch (error) {
-      console.error("AKIRA upgrade:", error);
-      notify(error.message || "Не удалось купить улучшение", "error");
+      console.error("Upgrade error:", error);
+      showToast(error.message || "Не удалось купить улучшение", "error");
     } finally {
-      state.busy = false;
+      busy = false;
       if (button) button.classList.remove("loading");
-      renderUpgrades();
+      renderPlayer();
     }
   }
 
-  async function buyItem(item, button) {
-    if (state.busy) return;
+  // -----------------------------
+  // DAILY REWARD
+  // -----------------------------
 
-    state.busy = true;
+  async function claimDaily() {
+    if (busy) return;
 
-    try {
-      const data = await api("/buy", {
-        method: "POST",
-        body: JSON.stringify({ item })
-      });
+    const button = $("#daily-button");
 
-      if (data.player) state.player = data.player;
-
-      await loadState();
-
-      notify(data.message || "Покупка успешна!", "success");
-      haptic("success");
-    } catch (error) {
-      notify(error.message || "Не удалось купить предмет", "error");
-    } finally {
-      state.busy = false;
-      renderUpgrades();
-    }
-  }
-
-  async function claimDaily(button) {
-    if (state.busy) return;
-
-    state.busy = true;
+    busy = true;
+    if (button) button.disabled = true;
 
     try {
       const data = await api("/daily", {
@@ -535,256 +374,245 @@
         body: JSON.stringify({})
       });
 
-      if (data.player) state.player = data.player;
+      if (data.player) player = data.player;
 
       await loadState();
 
       const reward = data.reward ?? data.amount;
 
-      notify(
+      showToast(
         reward != null
-          ? `Ежедневная награда: +${formatNumber(reward)} монет`
+          ? `Получено +${number(reward)} монет!`
           : data.message || "Награда получена!",
         "success"
       );
 
-      if (button) {
-        button.textContent = "Получено";
-        button.disabled = true;
-      }
-
       haptic("success");
     } catch (error) {
-      notify(error.message || "Награда пока недоступна", "error");
+      showToast(error.message || "Не удалось получить награду", "error");
     } finally {
-      state.busy = false;
+      busy = false;
+      if (button) button.disabled = false;
+      renderUpgradePrices();
     }
   }
 
-  async function claimTask(task, button) {
-    if (state.busy) return;
+  // -----------------------------
+  // TABS
+  // -----------------------------
 
-    state.busy = true;
+  function openTab(name) {
+    const target = $(`#tab-${name}`);
+
+    if (!target) {
+      showToast("Раздел не найден", "error");
+      return;
+    }
+
+    $$(".nav-button").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.tab === name
+      );
+    });
+
+    $$(".tab-content").forEach((section) => {
+      section.hidden = section.id !== `tab-${name}`;
+    });
+
+    haptic("light");
+
+    if (name === "top") loadLeaderboard();
+    if (name === "profile") loadState();
+  }
+
+  // -----------------------------
+  // THEMES
+  // -----------------------------
+
+  function setTheme(theme) {
+    const allowed = ["crimson", "midnight", "ocean", "emerald"];
+
+    if (!allowed.includes(theme)) return;
+
+    document.body.dataset.theme = theme;
+
+    $$(".theme-option").forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.theme === theme
+      );
+    });
 
     try {
-      const taskId = task.id ?? task.task_id;
+      localStorage.setItem("akira-theme", theme);
+    } catch (_) {}
 
-      const data = await api("/tasks/claim", {
-        method: "POST",
-        body: JSON.stringify({ taskId, id: taskId })
-      });
-
-      if (data.player) state.player = data.player;
-
-      task.claimed = true;
-      task.completed = true;
-
-      await loadState();
-
-      if (button) {
-        button.textContent = "Получено";
-        button.disabled = true;
-      }
-
-      notify(data.message || "Награда за задание получена!", "success");
-      haptic("success");
-    } catch (error) {
-      notify(error.message || "Не удалось получить награду", "error");
-    } finally {
-      state.busy = false;
-    }
+    haptic("light");
+    showToast(`Тема ${theme} применена`, "success");
   }
 
+  function initTheme() {
+    let savedTheme = "crimson";
+
+    try {
+      savedTheme = localStorage.getItem("akira-theme") || "crimson";
+    } catch (_) {}
+
+    setTheme(savedTheme);
+  }
+
+  // -----------------------------
+  // LEADERBOARD
+  // -----------------------------
+
   async function loadLeaderboard() {
+    const container = $("#leaderboard");
+    if (!container) return;
+
     try {
       const data = await api("/leaderboard");
 
-      state.leaderboard = Array.isArray(data)
+      const entries = Array.isArray(data)
         ? data
         : data.leaderboard || data.players || [];
 
-      renderLeaderboard();
-    } catch (error) {
-      console.error("AKIRA leaderboard:", error);
-    }
-  }
+      container.replaceChildren();
 
-  async function loadTasks() {
-    try {
-      const data = await api("/tasks");
+      if (!entries.length) {
+        const empty = document.createElement("p");
+        empty.className = "section-description";
+        empty.textContent = "Пока нет игроков в рейтинге";
+        container.appendChild(empty);
+        return;
+      }
 
-      state.tasks = Array.isArray(data)
-        ? data
-        : data.tasks || [];
+      entries.forEach((entry, index) => {
+        const row = document.createElement("div");
+        row.className = "leaderboard-row";
 
-      renderTasks();
-    } catch (error) {
-      console.error("AKIRA tasks:", error);
-    }
-  }
+        const rank = document.createElement("span");
+        rank.className = "leaderboard-rank";
+        rank.textContent = `#${index + 1}`;
 
-  async function startMinigame(button) {
-    if (state.busy) return;
+        const name = document.createElement("span");
+        name.className = "leaderboard-name";
+        name.textContent = entry.name || `Игрок ${index + 1}`;
 
-    state.busy = true;
+        const coins = document.createElement("span");
+        coins.className = "leaderboard-coins";
+        coins.textContent = number(entry.coins);
 
-    try {
-      const data = await api("/minigame/start", {
-        method: "POST",
-        body: JSON.stringify({})
+        row.append(rank, name, coins);
+        container.appendChild(row);
       });
-
-      state.minigame = data;
-
-      notify(data.message || "Мини-игра началась!", "success");
-
-      document.dispatchEvent(
-        new CustomEvent("akira:minigame-start", { detail: data })
-      );
     } catch (error) {
-      notify(error.message || "Не удалось запустить игру", "error");
-    } finally {
-      state.busy = false;
+      console.error("Leaderboard error:", error);
+      container.textContent = "Не удалось загрузить рейтинг";
     }
   }
 
-  async function finishMinigame(score = 0) {
-    try {
-      const data = await api("/minigame/finish", {
-        method: "POST",
-        body: JSON.stringify({
-          score: Math.max(0, Math.floor(Number(score) || 0)),
-          ...(state.minigame?.id != null
-            ? { gameId: state.minigame.id }
-            : {})
-        })
-      });
+  // -----------------------------
+  // STATE
+  // -----------------------------
 
-      if (data.player) state.player = data.player;
+  async function loadState() {
+    const data = await api("/state");
 
-      await loadState();
+    player = data.player || data;
 
-      notify(data.message || "Мини-игра завершена!", "success");
-      return data;
-    } catch (error) {
-      notify(error.message || "Не удалось завершить игру", "error");
-      throw error;
-    }
+    renderPlayer();
+
+    return data;
   }
 
-  function bindClick(selector, callback) {
-    $$(selector).forEach((element) => {
-      element.addEventListener("click", callback);
-    });
-  }
+  // -----------------------------
+  // EVENT HANDLERS
+  // -----------------------------
 
   function bindEvents() {
-    bindClick(
-      "#coin, #clicker, #clickButton, #mainCoin, [data-clicker]",
-      clickCoin
-    );
+    // Печенька
+    $("#cookie-button")?.addEventListener("click", clickCookie);
 
-    bindClick("[data-upgrade='click'], #upgrade-click", (event) => {
-      buyUpgrade("click", event.currentTarget);
-    });
-
-    bindClick("[data-upgrade='auto'], #upgrade-auto", (event) => {
-      buyUpgrade("auto", event.currentTarget);
-    });
-
-    bindClick(
-      "[data-upgrade='multiplier'], #upgrade-multiplier",
-      (event) => {
-        buyUpgrade("multiplier", event.currentTarget);
-      }
-    );
-
-    bindClick("#dailyButton, #daily-button, [data-daily]", (event) => {
-      claimDaily(event.currentTarget);
-    });
-
-    bindClick("#refreshButton, [data-refresh]", async () => {
-      await Promise.allSettled([
-        loadState(),
-        loadTasks(),
-        loadLeaderboard()
-      ]);
-
-      notify("Данные обновлены", "success");
-    });
-
-    bindClick("#minigameButton, [data-minigame-start]", (event) => {
-      startMinigame(event.currentTarget);
-    });
-
-    $$("[data-buy-item]").forEach((button) => {
+    // Навигация
+    $$(".nav-button[data-tab]").forEach((button) => {
       button.addEventListener("click", () => {
-        buyItem(button.dataset.buyItem, button);
+        openTab(button.dataset.tab);
       });
     });
 
-    $$("[data-page]").forEach((button) => {
+    // Улучшения
+    $$("[data-upgrade]").forEach((button) => {
       button.addEventListener("click", () => {
-        const page = button.dataset.page;
-
-        $$("[data-page]").forEach((item) => {
-          item.classList.toggle("active", item === button);
-        });
-
-        $$("[data-screen]").forEach((screen) => {
-          screen.hidden = screen.dataset.screen !== page;
-        });
+        buyUpgrade(button.dataset.upgrade, button);
       });
     });
 
+    // Ежедневная награда
+    $("#daily-button")?.addEventListener("click", claimDaily);
+
+    // Темы
+    $$(".theme-option[data-theme]").forEach((button) => {
+      button.addEventListener("click", () => {
+        setTheme(button.dataset.theme);
+      });
+    });
+
+    // Обновление после возвращения в приложение
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
-        loadState().catch(() => {});
-      }
-    });
+        loadState().catch((error) => {
+          console.error("Refresh error:", error);
+        });
 
-    window.addEventListener("online", () => {
-      loadState().catch(() => {});
+        const activeTab = $(".nav-button.active")?.dataset.tab;
+
+        if (activeTab === "top") {
+          loadLeaderboard();
+        }
+      }
     });
   }
 
+  // -----------------------------
+  // START
+  // -----------------------------
+
   async function init() {
-    initTelegram();
     bindEvents();
+    initTheme();
 
     try {
       await loadState();
 
-      await Promise.allSettled([
-        loadTasks(),
-        loadLeaderboard()
-      ]);
+      // Не запускаем повторные интервалы.
+      clearInterval(refreshTimer);
 
-      clearInterval(state.refreshTimer);
-
-      state.refreshTimer = setInterval(() => {
+      refreshTimer = setInterval(() => {
         if (!document.hidden) {
-          loadState().catch(() => {});
+          loadState().catch((error) => {
+            console.error("Auto refresh error:", error);
+          });
         }
       }, 15000);
     } catch (error) {
-      console.error("AKIRA init:", error);
+      console.error("AKIRA initialization error:", error);
+      showToast(
+        error.message || "Не удалось подключиться к серверу",
+        "error"
+      );
     }
   }
 
+  // Функции для проверки из консоли браузера.
   window.AKIRA = {
-    api,
     loadState,
-    loadTasks,
     loadLeaderboard,
-    clickCoin,
+    clickCookie,
     buyUpgrade,
     claimDaily,
-    claimTask,
-    startMinigame,
-    finishMinigame,
-    notify,
-    getState: () => state
+    openTab,
+    setTheme
   };
 
   if (document.readyState === "loading") {
