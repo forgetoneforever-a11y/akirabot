@@ -1,495 +1,512 @@
 
-(() => {
-  "use strict";
+"use strict";
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) =>
-    [...root.querySelectorAll(selector)];
+const API_BASE = "/api";
 
-  const state = {
-    player: {},
-    theme: localStorage.getItem("akira-theme") || "crimson",
-    busy: false,
-    lastClick: 0
-  };
+const THEMES = ["crimson", "midnight", "ocean", "emerald"];
+const DEFAULT_THEME = "crimson";
 
-  const THEMES = ["crimson", "midnight", "ocean", "emerald"];
+const state = {
+  player: {},
+  prices: {},
+  loading: false,
+  currentTab: "shop",
+};
 
-  function number(value) {
-    const n = Number(value);
-    return (Number.isFinite(n) ? n : 0).toLocaleString("ru-RU");
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
+
+function number(value) {
+  const result = Number(value ?? 0);
+  return Number.isFinite(result) ? result : 0;
+}
+
+function formatNumber(value) {
+  return Math.floor(number(value)).toLocaleString("ru-RU");
+}
+
+function showToast(message) {
+  const toast = $("#toast");
+  if (!toast) {
+    console.log(message);
+    return;
   }
 
-  function value(object, keys, fallback = 0) {
-    for (const key of keys) {
-      if (object?.[key] !== undefined && object[key] !== null) {
-        return object[key];
-      }
-    }
-    return fallback;
-  }
+  toast.textContent = message;
+  toast.classList.add("show", "active");
+  toast.classList.remove("hidden");
 
-  function escapeHTML(text) {
-    return String(text).replace(/[&<>"']/g, char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[char]);
-  }
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => {
+    toast.classList.remove("show", "active");
+  }, 2200);
+}
 
-  function toast(message) {
-    const el = $("#toast");
-
-    if (!el) {
-      console.log("[AKIRA]", message);
-      return;
-    }
-
-    el.textContent = String(message);
-    el.hidden = false;
-    el.classList.add("show");
-
-    clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => {
-      el.classList.remove("show");
-      el.hidden = true;
-    }, 2500);
-  }
-
-  async function api(url, options = {}) {
-    const headers = {
+async function api(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: options.method || "GET",
+    headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {})
-    };
+      ...(options.headers || {}),
+    },
+    body: options.body === undefined
+      ? undefined
+      : JSON.stringify(options.body),
+  });
 
-    const initData = window.Telegram?.WebApp?.initData;
-    if (initData) {
-      headers["X-Telegram-Init-Data"] = initData;
-    }
+  const raw = await response.text();
+  let data = {};
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-      cache: "no-store"
-    });
-
-    const raw = await response.text();
-    let data = {};
-
-    if (raw) {
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        throw new Error(`Некорректный ответ сервера: HTTP ${response.status}`);
-      }
-    }
-
-    if (!response.ok) {
-      const error = new Error(
-        data.error || data.message || `Ошибка HTTP ${response.status}`
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        `Сервер вернул не JSON (HTTP ${response.status}). Проверь ответ сервера.`
       );
-      error.status = response.status;
-      throw error;
     }
-
-    if (data?.error) {
-      throw new Error(data.error);
-    }
-
-    return data;
   }
 
-  function getPlayer(data) {
-    if (!data || typeof data !== "object") return null;
-
-    if (data.player && typeof data.player === "object") return data.player;
-    if (data.state && typeof data.state === "object") return data.state;
-
-    if (
-      "balance" in data ||
-      "coins" in data ||
-      "click_power" in data ||
-      "total_earned" in data
-    ) {
-      return data;
-    }
-
-    return null;
+  if (!response.ok) {
+    throw new Error(
+      data.error || data.message || `Ошибка сервера: HTTP ${response.status}`
+    );
   }
 
-  function balance() {
-    return Number(value(state.player, ["balance", "coins", "money"], 0));
+  return data;
+}
+
+/* -------------------------
+   ТЕМЫ
+------------------------- */
+
+function normalizeTheme(theme) {
+  return THEMES.includes(theme) ? theme : DEFAULT_THEME;
+}
+
+function applyTheme(theme, notify = false) {
+  const selectedTheme = normalizeTheme(theme);
+
+  document.documentElement.dataset.theme = selectedTheme;
+
+  if (document.body) {
+    document.body.dataset.theme = selectedTheme;
   }
 
-  function clickPower() {
-    const base = Number(value(
-      state.player,
-      ["click_power", "clickPower"],
-      1
-    ));
-
-    const multiplier = Number(value(
-      state.player,
-      ["multiplier_level", "multiplierLevel"],
-      0
-    ));
-
-    return Math.max(1, base * Math.pow(2, multiplier));
+  try {
+    localStorage.setItem("akira-theme", selectedTheme);
+  } catch (error) {
+    console.warn("Не удалось сохранить тему:", error);
   }
 
-  function autoPower() {
-    return Number(value(
-      state.player,
-      ["auto_power", "autoPower", "auto_income", "autoIncome"],
-      value(state.player, ["auto_level", "autoLevel"], 0)
-    ));
+  $$(".theme-option").forEach((button) => {
+    const selected = button.dataset.theme === selectedTheme;
+
+    button.classList.toggle("active", selected);
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+
+  if (notify) {
+    showToast("Тема изменена");
+  }
+}
+
+function initThemes() {
+  let savedTheme = DEFAULT_THEME;
+
+  try {
+    savedTheme = localStorage.getItem("akira-theme") || DEFAULT_THEME;
+  } catch (error) {
+    console.warn("Не удалось прочитать тему:", error);
   }
 
-  function price(type) {
-    const fields = {
-      click: ["click_price", "finger_price", "next_click_price"],
-      auto: ["auto_price", "next_auto_price"],
-      multiplier: ["multiplier_price", "next_multiplier_price"]
-    };
+  applyTheme(savedTheme);
 
-    const defaults = { click: 82, auto: 250, multiplier: 1000 };
-
-    return Number(value(state.player, fields[type], defaults[type]));
-  }
-
-  function renderState() {
-    const p = state.player;
-
-    const set = (selector, text) => {
-      const el = $(selector);
-      if (el) el.textContent = String(text);
-    };
-
-    set("#balance", number(balance()));
-    set("#total-earned", number(value(
-      p, ["total_earned", "totalEarned", "earned"], 0
-    )));
-
-    // Важно: здесь только числа. Подписи «за клик» и «/сек авто»
-    // должны оставаться в HTML, а не добавляться повторно через JS.
-    set("#click-power", `+${number(clickPower())}`);
-    set("#auto-power", number(autoPower()));
-
-    set("#level", value(p, ["level"], 1));
-
-    set("#player-name", value(
-      p, ["name", "username", "first_name"], "Игрок"
-    ));
-
-    set("#profile-balance", number(balance()));
-    set("#profile-earned", number(value(
-      p, ["total_earned", "totalEarned", "earned"], 0
-    )));
-    set("#profile-click", number(clickPower()));
-    set("#profile-auto", number(autoPower()));
-
-    set("#finger-price", number(price("click")));
-    set("#auto-price", number(price("auto")));
-    set("#multiplier-price", number(price("multiplier")));
-
-    updateButtons();
-  }
-
-  function updateButtons() {
-    $$("[data-upgrade]").forEach(button => {
-      const type = button.dataset.upgrade;
-      if (!["click", "auto", "multiplier"].includes(type)) return;
-
-      button.disabled = state.busy || balance() < price(type);
+  $$(".theme-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      applyTheme(button.dataset.theme, true);
     });
+  });
+}
+
+/* -------------------------
+   ИГРОК И ОТОБРАЖЕНИЕ
+------------------------- */
+
+function getPlayer() {
+  return state.player || {};
+}
+
+function getBalance() {
+  return number(getPlayer().balance);
+}
+
+function getClickPower() {
+  const player = getPlayer();
+  const power = number(player.click_power ?? player.clickPower ?? 1);
+  const multiplierLevel = number(
+    player.multiplier_level ?? player.multiplierLevel
+  );
+
+  return power * Math.pow(2, multiplierLevel);
+}
+
+function getAutoPower() {
+  const player = getPlayer();
+
+  if (player.auto_power !== undefined) {
+    return number(player.auto_power);
   }
 
-  async function loadState(silent = false) {
-    try {
-      const data = await api("/api/state");
-      const p = getPlayer(data);
-
-      if (p) {
-        state.player = { ...state.player, ...p };
-        renderState();
-      }
-
-      if (Array.isArray(data.tasks)) renderTasks(data.tasks);
-      return data;
-    } catch (error) {
-      console.error("[AKIRA] state:", error);
-      if (!silent) toast(error.message);
-      throw error;
-    }
+  if (player.autoPower !== undefined) {
+    return number(player.autoPower);
   }
 
-  function renderTasks(tasks) {
-    const container = $("#tasks");
-    if (!container) return;
+  return number(player.auto_level ?? player.autoLevel);
+}
 
-    container.innerHTML = tasks.map(task => `
-      <div class="task-item">
-        <span>${escapeHTML(task.title || task.name || "Задание")}</span>
-        <span>+${number(task.reward || 0)} 🍪</span>
-      </div>
-    `).join("");
+function renderState(data) {
+  if (!data || typeof data !== "object") {
+    throw new Error("Сервер вернул пустое состояние игры");
   }
 
-  async function clickCookie() {
-    const now = Date.now();
-    if (now - state.lastClick < 90) return;
-    state.lastClick = now;
+  state.player = data.player || data;
+  state.prices = data.prices || state.player.prices || {};
 
-    const button = $("#cookie-button");
-    if (button) {
-      button.classList.remove("click-animation");
-      void button.offsetWidth;
-      button.classList.add("click-animation");
-    }
+  const player = getPlayer();
 
-    try {
-      const data = await api("/api/click", {
-        method: "POST",
-        body: JSON.stringify({})
-      });
+  const balance = $("#balance");
+  if (balance) balance.textContent = formatNumber(player.balance);
 
-      const p = getPlayer(data);
-      if (p) {
-        state.player = { ...state.player, ...p };
-        renderState();
-      } else {
-        await loadState(true);
-      }
-    } catch (error) {
-      console.error("[AKIRA] click:", error);
-      toast(error.message);
-    }
+  const totalEarned = $("#total-earned");
+  if (totalEarned) {
+    totalEarned.textContent = formatNumber(
+      player.total_earned ?? player.totalEarned
+    );
   }
 
-  async function buyUpgrade(type) {
-    if (state.busy) return;
-    if (!["click", "auto", "multiplier"].includes(type)) return;
-
-    if (balance() < price(type)) {
-      toast("Недостаточно монет");
-      return;
-    }
-
-    state.busy = true;
-    updateButtons();
-
-    try {
-      let data;
-
-      // Поддерживаем оба варианта API. Переходим на второй маршрут
-      // только если первый отсутствует или не поддерживает метод.
-      try {
-        data = await api("/api/upgrades", {
-          method: "POST",
-          body: JSON.stringify({ type, upgrade: type })
-        });
-      } catch (error) {
-        if (![404, 405].includes(error.status)) throw error;
-
-        data = await api("/api/buy", {
-          method: "POST",
-          body: JSON.stringify({ type, upgrade: type })
-        });
-      }
-
-      const p = getPlayer(data);
-      if (p) {
-        state.player = { ...state.player, ...p };
-        renderState();
-      } else {
-        await loadState(true);
-      }
-
-      toast(data.message || "Покупка выполнена");
-    } catch (error) {
-      console.error("[AKIRA] purchase:", error);
-      toast(error.message || "Не удалось купить улучшение");
-    } finally {
-      state.busy = false;
-      updateButtons();
-    }
+  const level = $("#level");
+  if (level) {
+    level.textContent = player.level ?? 1;
   }
 
-  async function claimDaily() {
-    const button = $("#daily-button");
-    if (button) button.disabled = true;
-
-    try {
-      const data = await api("/api/daily", {
-        method: "POST",
-        body: JSON.stringify({})
-      });
-
-      const p = getPlayer(data);
-      if (p) {
-        state.player = { ...state.player, ...p };
-        renderState();
-      } else {
-        await loadState(true);
-      }
-
-      toast(data.message || "Ежедневная награда получена!");
-    } catch (error) {
-      console.error("[AKIRA] daily:", error);
-      toast(error.message);
-    } finally {
-      if (button) button.disabled = false;
-    }
+  const clickPower = $("#click-power");
+  if (clickPower) {
+    // Не добавляем "+": знак можно оставить в HTML.
+    clickPower.textContent = formatNumber(getClickPower());
   }
 
-  async function loadLeaderboard() {
-    const container = $("#leaderboard");
-    if (!container) return;
-
-    container.innerHTML = "<p>Загрузка рейтинга...</p>";
-
-    try {
-      const data = await api("/api/leaderboard");
-      const players = Array.isArray(data)
-        ? data
-        : data.players || data.leaderboard || data.top || [];
-
-      if (!players.length) {
-        container.innerHTML = "<p>Пока нет игроков в рейтинге.</p>";
-        return;
-      }
-
-      container.innerHTML = players.map((p, index) => {
-        const rank = p.rank || index + 1;
-        const name = escapeHTML(
-          p.name || p.username || p.first_name || "Игрок"
-        );
-        const score = value(
-          p, ["score", "balance", "coins", "total_earned"], 0
-        );
-
-        return `
-          <div class="leaderboard-item">
-            <span class="leaderboard-rank">#${rank}</span>
-            <strong class="leaderboard-name">${name}</strong>
-            <span class="leaderboard-score">${number(score)} 🍪</span>
-          </div>
-        `;
-      }).join("");
-    } catch (error) {
-      console.error("[AKIRA] leaderboard:", error);
-      container.innerHTML =
-        `<p>${escapeHTML(error.message || "Ошибка загрузки рейтинга")}</p>`;
-    }
+  const autoPower = $("#auto-power");
+  if (autoPower) {
+    // Не добавляем "/сек авто": это может уже находиться в HTML.
+    autoPower.textContent = formatNumber(getAutoPower());
   }
 
-  function switchTab(name) {
-    const panel = $(`#tab-${name}`);
-
-    if (!panel) {
-      console.error(`[AKIRA] Не найдена панель #tab-${name}`);
-      toast("Панель вкладки отсутствует в index.html");
-      return;
-    }
-
-    $$(".nav-button[data-tab]").forEach(button => {
-      const active = button.dataset.tab === name;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
-
-    ["shop", "top", "profile", "themes"].forEach(tab => {
-      const el = $(`#tab-${tab}`);
-      if (!el) return;
-
-      el.hidden = tab !== name;
-      el.classList.toggle("active", tab === name);
-    });
-
-    if (name === "top") loadLeaderboard();
-    if (name === "profile") loadState(true).catch(() => {});
+  const profileBalance = $("#profile-balance");
+  if (profileBalance) {
+    profileBalance.textContent = formatNumber(player.balance);
   }
 
-  function applyTheme(name) {
-    if (!THEMES.includes(name)) name = "crimson";
-
-    state.theme = name;
-    document.body.dataset.theme = name;
-    document.documentElement.dataset.theme = name;
-
-    localStorage.setItem("akira-theme", name);
-
-    $$(".theme-option[data-theme]").forEach(button => {
-      const active = button.dataset.theme === name;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
+  const profileEarned = $("#profile-earned");
+  if (profileEarned) {
+    profileEarned.textContent = formatNumber(
+      player.total_earned ?? player.totalEarned
+    );
   }
 
-  function bindEvents() {
-    $("#cookie-button")?.addEventListener("click", clickCookie);
-    $("#daily-button")?.addEventListener("click", claimDaily);
-
-    $$(".nav-button[data-tab]").forEach(button => {
-      button.addEventListener("click", () => {
-        switchTab(button.dataset.tab);
-      });
-    });
-
-    $$("[data-upgrade]").forEach(button => {
-      button.addEventListener("click", () => {
-        buyUpgrade(button.dataset.upgrade);
-      });
-    });
-
-    $$(".theme-option[data-theme]").forEach(button => {
-      button.addEventListener("click", () => {
-        applyTheme(button.dataset.theme);
-        toast("Тема изменена");
-      });
-    });
+  const profileClick = $("#profile-click");
+  if (profileClick) {
+    profileClick.textContent = formatNumber(getClickPower());
   }
 
-  async function init() {
-    const tg = window.Telegram?.WebApp;
-
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      try {
-        tg.setHeaderColor("#09080d");
-        tg.setBackgroundColor("#09080d");
-      } catch (_) {}
-    }
-
-    bindEvents();
-    applyTheme(state.theme);
-    switchTab("shop");
-
-    try {
-      await loadState();
-    } catch (_) {}
-
-    // Загрузка топа выполняется при открытии вкладки «Топ».
-    setInterval(() => {
-      loadState(true).catch(() => {});
-    }, 15000);
+  const profileAuto = $("#profile-auto");
+  if (profileAuto) {
+    profileAuto.textContent = formatNumber(getAutoPower());
   }
 
-  window.AKIRA = {
-    api,
-    loadState,
-    loadLeaderboard,
-    buyUpgrade,
-    switchTab,
-    applyTheme
+  const playerName = $("#player-name");
+  if (playerName) {
+    playerName.textContent =
+      player.name || player.username || "Игрок AKIRA";
+  }
+
+  updateUpgradePrices();
+}
+
+function updateUpgradePrices() {
+  const priceElements = {
+    click: $("#finger-price"),
+    auto: $("#auto-price"),
+    multiplier: $("#multiplier-price"),
   };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
+  for (const [type, element] of Object.entries(priceElements)) {
+    if (!element) continue;
+
+    const price = state.prices[type];
+
+    if (price !== undefined && price !== null) {
+      element.textContent = formatNumber(
+        typeof price === "object" ? price.price : price
+      );
+    }
   }
-})();
+}
+
+async function loadState() {
+  try {
+    const data = await api("/state");
+    renderState(data);
+  } catch (error) {
+    console.error("Ошибка загрузки состояния:", error);
+    showToast(error.message || "Не удалось загрузить игру");
+  }
+}
+
+/* -------------------------
+   КЛИКЕР
+------------------------- */
+
+function animateCookie() {
+  const button = $("#cookie-button");
+  if (!button) return;
+
+  button.classList.remove("clicked");
+  void button.offsetWidth;
+  button.classList.add("clicked");
+
+  setTimeout(() => button.classList.remove("clicked"), 180);
+}
+
+async function clickCookie() {
+  if (state.loading) return;
+
+  animateCookie();
+
+  try {
+    const data = await api("/click", {
+      method: "POST",
+      body: {},
+    });
+
+    if (data.player || data.balance !== undefined) {
+      renderState(data);
+    } else {
+      await loadState();
+    }
+  } catch (error) {
+    console.error("Ошибка клика:", error);
+    showToast(error.message || "Не удалось выполнить клик");
+  }
+}
+
+/* -------------------------
+   ПОКУПКА УЛУЧШЕНИЙ
+------------------------- */
+
+async function buyUpgrade(type) {
+  if (state.loading) return;
+
+  state.loading = true;
+
+  try {
+    let data;
+
+    try {
+      data = await api("/upgrades", {
+        method: "POST",
+        body: { type, upgrade: type },
+      });
+    } catch (error) {
+      if (!String(error.message).includes("404") &&
+          !String(error.message).includes("405")) {
+        throw error;
+      }
+
+      data = await api("/buy", {
+        method: "POST",
+        body: { type, upgrade: type },
+      });
+    }
+
+    if (data.player || data.balance !== undefined) {
+      renderState(data);
+    } else {
+      await loadState();
+    }
+
+    showToast("Улучшение куплено!");
+  } catch (error) {
+    console.error("Ошибка покупки:", error);
+    showToast(error.message || "Не удалось купить улучшение");
+  } finally {
+    state.loading = false;
+  }
+}
+
+/* -------------------------
+   ЕЖЕДНЕВНАЯ НАГРАДА
+------------------------- */
+
+async function claimDailyReward() {
+  const button = $("#daily-button");
+  if (button?.disabled) return;
+
+  try {
+    const data = await api("/daily", {
+      method: "POST",
+      body: {},
+    });
+
+    if (data.player || data.balance !== undefined) {
+      renderState(data);
+    } else {
+      await loadState();
+    }
+
+    showToast(data.message || "Ежедневная награда получена!");
+  } catch (error) {
+    console.error("Ошибка ежедневной награды:", error);
+    showToast(error.message || "Не удалось получить награду");
+  }
+}
+
+/* -------------------------
+   ВКЛАДКИ
+------------------------- */
+
+function switchTab(tabName) {
+  const validTabs = ["shop", "top", "profile", "themes"];
+
+  if (!validTabs.includes(tabName)) return;
+
+  state.currentTab = tabName;
+
+  $$(".nav-button").forEach((button) => {
+    button.classList.toggle(
+      "active",
+      button.dataset.tab === tabName
+    );
+  });
+
+  validTabs.forEach((name) => {
+    const panel = $(`#tab-${name}`);
+    if (!panel) return;
+
+    const visible = name === tabName;
+
+    panel.hidden = !visible;
+    panel.classList.toggle("active", visible);
+    panel.style.display = visible ? "" : "none";
+  });
+
+  if (tabName === "top") {
+    loadLeaderboard();
+  }
+
+  if (tabName === "profile") {
+    loadState();
+  }
+}
+
+/* -------------------------
+   ТАБЛИЦА ЛИДЕРОВ
+------------------------- */
+
+async function loadLeaderboard() {
+  const container = $("#leaderboard");
+  if (!container) return;
+
+  container.textContent = "Загрузка рейтинга…";
+
+  try {
+    const data = await api("/leaderboard");
+    const players = Array.isArray(data)
+      ? data
+      : data.players || data.leaderboard || [];
+
+    container.replaceChildren();
+
+    if (!players.length) {
+      container.textContent = "Пока нет игроков в рейтинге";
+      return;
+    }
+
+    players.forEach((player, index) => {
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+
+      const rank = document.createElement("span");
+      rank.className = "leaderboard-rank";
+      rank.textContent = `#${index + 1}`;
+
+      const name = document.createElement("span");
+      name.className = "leaderboard-name";
+      name.textContent =
+        player.name || player.username || "Игрок";
+
+      const score = document.createElement("span");
+      score.className = "leaderboard-score";
+      score.textContent = formatNumber(
+        player.total_earned ?? player.totalEarned ?? player.balance
+      );
+
+      row.append(rank, name, score);
+      container.appendChild(row);
+    });
+  } catch (error) {
+    console.error("Ошибка рейтинга:", error);
+    container.textContent = error.message || "Не удалось загрузить рейтинг";
+  }
+}
+
+/* -------------------------
+   ОБРАБОТЧИКИ КНОПОК
+------------------------- */
+
+function initEventHandlers() {
+  const cookieButton = $("#cookie-button");
+
+  if (cookieButton) {
+    cookieButton.addEventListener("click", clickCookie);
+  }
+
+  $$("[data-upgrade]").forEach((button) => {
+    button.addEventListener("click", () => {
+      buyUpgrade(button.dataset.upgrade);
+    });
+  });
+
+  $$(".nav-button[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      switchTab(button.dataset.tab);
+    });
+  });
+
+  const dailyButton = $("#daily-button");
+  if (dailyButton) {
+    dailyButton.addEventListener("click", claimDailyReward);
+  }
+}
+
+/* -------------------------
+   ЗАПУСК
+------------------------- */
+
+function init() {
+  initThemes();
+  initEventHandlers();
+
+  // Показываем магазин при открытии игры.
+  switchTab("shop");
+
+  // Загружаем состояние игрока с сервера.
+  loadState();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
