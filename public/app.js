@@ -153,7 +153,7 @@ function getClickPower() {
     player.multiplier_level ?? player.multiplierLevel
   );
 
-  return power * Math.pow(2, multiplierLevel);
+  return Math.floor(power * Math.pow(2, multiplierLevel) * number(player.rank_multiplier ?? 1));
 }
 
 function getAutoPower() {
@@ -289,6 +289,8 @@ function renderState(data) {
 
   const avatar = $("#profile-avatar");
   if (avatar) {
+    avatar.classList.remove("frame-rookie","frame-experienced","frame-veteran","frame-master","frame-emperor","frame-legend");
+    avatar.classList.add(player.rank_frame || "frame-rookie");
     avatar.src = getAvatarUrl(player);
     avatar.onerror = () => {
       avatar.onerror = null;
