@@ -395,7 +395,8 @@ function switchTab(tabName, direction = 0) {
   const oldIndex = TABS.indexOf(state.currentTab);
   const newIndex = TABS.indexOf(tabName);
 
-  if (oldIndex === newIndex && tabName === state.currentTab) return;
+  // Не выходим при повторном выборе вкладки: при запуске нужно
+  // обязательно синхронизировать видимость панелей и кнопок навигации.
 
   state.currentTab = tabName;
   document.body.classList.toggle("games-fullscreen", tabName === "games");
