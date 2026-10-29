@@ -3,7 +3,7 @@
   "use strict";
 
   const DEFAULT_AVATAR = "/avatar-default.svg";
-  const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+  const MAX_AVATAR_SIZE = 1 * 1024 * 1024;
   const ALLOWED_AVATAR_TYPES = [
     "image/jpeg",
     "image/png",
