@@ -613,6 +613,20 @@
 
     game.selectedCardId = null;
 
+    // После отбивания бот-атакующий должен получить возможность
+    // подкинуть карту или завершить атаку, а не отдавать ход игроку бесконечно.
+    if (game.attacker === "bot" && game.defender === "player") {
+      game.turn = "bot";
+      if (game.table.some((item) => !item.defense)) {
+        setStatus("Отбита одна карта. Бот продолжает атаку…");
+      } else {
+        setStatus("Карта отбита. Бот решает, подкинуть ли ещё карту…");
+      }
+      render();
+      scheduleBotTurn();
+      return;
+    }
+
     if (game.table.some((item) => !item.defense)) {
       setStatus("Отбей оставшиеся карты.");
     } else {
@@ -867,6 +881,34 @@
 
       setStatus("Бот атакует. Твой ход — отбивайся или бери карты.");
       game.turn = "player";
+      render();
+      return;
+    }
+
+    // Бот атакует игрока: после отбивания решает, можно ли подкинуть
+    // карту того же достоинства. Если подкинуть нечего, передаёт ход игроку.
+    if (game.attacker === "bot" && game.defender === "player") {
+      const limit = Math.min(6, game.playerHand.length);
+      const candidates = game.botHand
+        .filter((candidate) => canThrowIn(candidate))
+        .sort((a, b) => a.value - b.value);
+      const mayThrow = game.table.length < limit && candidates.length > 0;
+      const shouldThrow = mayThrow && (
+        game.difficulty === "hard" || Math.random() < (game.difficulty === "medium" ? 0.45 : 0.25)
+      );
+
+      if (shouldThrow) {
+        const extra = candidates[0];
+        removeCard(game.botHand, extra.id);
+        game.table.push({ attack: extra, defense: null });
+        game.turn = "player";
+        setStatus("Бот подкинул карту. Твой ход — отбивайся или бери карты.");
+      } else {
+        game.turn = "player";
+        setStatus(game.table.every((pair) => pair.defense)
+          ? "Бот завершил атаку. Нажми «Бито», чтобы перейти к следующему ходу."
+          : "Бот атакует. Твой ход — отбивайся или бери карты.");
+      }
       render();
       return;
     }
