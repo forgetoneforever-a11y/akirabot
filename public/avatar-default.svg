@@ -1,0 +1,39 @@
+```
+
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="20" y1="16" x2="236" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#252525"/>
+      <stop offset="1" stop-color="#080808"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="70" y1="48" x2="190" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#999999"/>
+    </linearGradient>
+    <clipPath id="clip">
+      <circle cx="128" cy="128" r="120"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#clip)">
+    <circle cx="128" cy="128" r="120" fill="url(#bg)"/>
+
+    <circle cx="128" cy="128" r="108" stroke="#FFFFFF" stroke-opacity=".12" stroke-width="1.5"/>
+
+    <path d="M18 192C61 165 85 151 128 151C171 151 195 165 238 192V256H18V192Z" fill="#101010"/>
+
+    <path d="M45 224C55 183 83 163 128 163C173 163 201 183 211 224" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="2"/>
+
+    <path d="M128 40C104 40 85 59 85 83C85 107 104 126 128 126C152 126 171 107 171 83C171 59 152 40 128 40Z" fill="url(#accent)" fill-opacity=".95"/>
+
+    <path d="M128 139C91 139 62 161 52 195C74 214 100 224 128 224C156 224 182 214 204 195C194 161 165 139 128 139Z" fill="url(#accent)" fill-opacity=".95"/>
+
+    <path d="M128 139C109 139 94 146 82 157C95 170 111 177 128 177C145 177 161 170 174 157C162 146 147 139 128 139Z" fill="#C8C8C8" fill-opacity=".65"/>
+
+    <path d="M128 12V30M128 226V244M12 128H30M226 128H244" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>
+
+    <circle cx="128" cy="128" r="120" stroke="#FFFFFF" stroke-opacity=".22" stroke-width="2"/>
+  </g>
+</svg>
+
+```
