@@ -769,6 +769,10 @@ function initEventHandlers() {
 
 function init() {
   if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
+  // Refresh server-authoritative balance so auto-clicker earnings appear while the app is open.
+  if (!window.akiraAutoRefresh) window.akiraAutoRefresh = setInterval(() => {
+    if (!document.hidden && !state.loading) loadState();
+  }, 5000);
   const telegram = window.Telegram?.WebApp;
 
   try {
