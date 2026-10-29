@@ -433,34 +433,33 @@
           </div>
 
           <div id="game-settings" class="game-settings">
-            <label for="durak-mode">Режим «Дурака»</label>
+            <div class="game-setting-field">
+              <label for="durak-mode">Режим «Дурака»</label>
+              <select id="durak-mode">
+                <option value="throw-in">Подкидной</option>
+                <option value="transfer">Переводной</option>
+              </select>
+            </div>
 
-            <select id="durak-mode">
-              <option value="throw-in">Подкидной</option>
-              <option value="transfer">Переводной</option>
-            </select>
+            <div class="game-setting-field">
+              <label for="game-difficulty">Сложность бота</label>
+              <select id="game-difficulty">
+                <option value="easy">Лёгкая</option>
+                <option value="medium">Средняя</option>
+                <option value="hard">Сложная</option>
+              </select>
+            </div>
 
-            <label for="game-difficulty">Сложность бота</label>
+            <div class="game-setting-field">
+              <label for="chess-color">Цвет в шахматах</label>
+              <select id="chess-color">
+                <option value="white">Белые</option>
+                <option value="black">Чёрные</option>
+                <option value="random">Случайно</option>
+              </select>
+            </div>
 
-            <select id="game-difficulty">
-              <option value="easy">Лёгкая</option>
-              <option value="medium">Средняя</option>
-              <option value="hard">Сложная</option>
-            </select>
-
-            <label for="chess-color">Цвет в шахматах</label>
-
-            <select id="chess-color">
-              <option value="white">Белые</option>
-              <option value="black">Чёрные</option>
-              <option value="random">Случайно</option>
-            </select>
-
-            <button
-              class="btn btn-secondary btn-full"
-              type="button"
-              id="start-game-button"
-            >
+            <button class="btn btn-secondary btn-full" type="button" id="start-game-button">
               Начать игру
             </button>
           </div>
