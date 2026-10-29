@@ -10,6 +10,53 @@ const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
 
 app.set("trust proxy", 1);
+
+const WEB_APP_URL = process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || "https://akirabot-krl0.onrender.com/";
+const SUPPORT_URL = process.env.SUPPORT_URL || "https://t.me/akiracliker_bot";
+const BOT_API = BOT_TOKEN ? "https://api.telegram.org/bot" + BOT_TOKEN : "";
+let telegramOffset = 0;
+let pollingStarted = false;
+async function telegramCall(method, payload) {
+  if (!BOT_API) throw new Error("BOT_TOKEN is not configured");
+  const response = await fetch(BOT_API + "/" + method, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  const data = await response.json();
+  if (!data.ok) throw new Error(data.description || ("Telegram API " + method + " failed"));
+  return data.result;
+}
+async function handleBotUpdate(update) {
+  const message = update.message;
+  if (!message || !message.text) return;
+  const command = message.text.trim().split(/\\s+/)[0].split("@")[0];
+  if (command === "/start") {
+    const name = message.from && message.from.first_name ? message.from.first_name : "Император";
+    await telegramCall("sendMessage", {
+      chat_id: message.chat.id,
+      text: "🍪 Привет, " + name + "! Добро пожаловать в AKIRA — Cookie Empire.\\n\\nЗарабатывай печеньки, улучшай свою империю, соревнуйся в рейтинге и играй в мини-игры.\\n\\nГотов начать?",
+      reply_markup: { inline_keyboard: [[
+        { text: "🎮 Играть", web_app: { url: WEB_APP_URL } },
+        { text: "🛟 Поддержка", url: SUPPORT_URL }
+      ]] }
+    });
+  }
+}
+async function telegramPollingLoop() {
+  if (!BOT_API || pollingStarted) return;
+  pollingStarted = true;
+  console.log("[AKIRA BOT] Telegram polling started");
+  while (true) {
+    try {
+      const updates = await telegramCall("getUpdates", { offset: telegramOffset, timeout: 25, allowed_updates: ["message"] });
+      for (const update of updates) {
+        telegramOffset = update.update_id + 1;
+        try { await handleBotUpdate(update); } catch (error) { console.error("[AKIRA BOT] Update error:", error.message); }
+      }
+    } catch (error) {
+      console.error("[AKIRA BOT] Polling error:", error.message);
+      await new Promise(resolve => setTimeout(resolve, 4000));
+    }
+  }
+}
+
 app.use(express.json({ limit: "2mb" }));
 
 const pool = new Pool({
@@ -415,6 +462,7 @@ async function start() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`AKIRA server started on port ${PORT}`);
   });
+  telegramPollingLoop();
 }
 
 start().catch(error => {
