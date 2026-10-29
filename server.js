@@ -340,6 +340,15 @@ app.post("/api/daily", async (req, res, next) => {
   }
 });
 
+function rankTitle(totalEarned) {
+  if (totalEarned >= 1000000) return "Легенда";
+  if (totalEarned >= 250000) return "Император";
+  if (totalEarned >= 100000) return "Мастер";
+  if (totalEarned >= 25000) return "Ветеран";
+  if (totalEarned >= 5000) return "Опытный";
+  return "Новичок";
+}
+
 app.get("/api/leaderboard", async (req, res, next) => {
   try {
     const result = await pool.query(
@@ -356,6 +365,8 @@ app.get("/api/leaderboard", async (req, res, next) => {
         avatar_url: player.avatar_url || null,
         balance: Number(player.balance || 0),
         total_earned: Number(player.total_earned || 0),
+        level: Math.max(1, Math.floor(Math.sqrt(Number(player.total_earned || 0) / 1000)) + 1),
+        rank_title: rankTitle(Number(player.total_earned || 0)),
         score: Number(player.total_earned || 0)
       }))
     });
