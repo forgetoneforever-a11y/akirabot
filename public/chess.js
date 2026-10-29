@@ -506,7 +506,12 @@
     if (state.mode === "online" && window.AKIRAOnlineGames?.action) {
       window.AKIRAOnlineGames.action("move", {
         move: { from: move.from, to: move.to, promotion: move.promotion || "q" }
-      }).catch((error) => setStatus(error.message || "Ход не принят сервером."));
+      }).catch((error) => {
+        // Restore the last authoritative server position if the move was rejected.
+        const onlineState = window.AKIRAOnlineGames?.getState?.();
+        if (onlineState?.snapshot) applyOnlineChessState(onlineState.snapshot);
+        setStatus(error.message || "Ход не принят сервером.");
+      });
     }
 
     clearSelection();
