@@ -951,28 +951,16 @@
     removeCard(game.botHand, card.id);
     pair.defense = card;
 
-    const canThrowMore = game.table.length < Math.min(6, game.playerHand.length) &&
-      game.botHand.some((candidate) => canThrowIn(candidate));
-
-    if (canThrowMore) {
-      const extra = game.botHand
-        .filter((candidate) => canThrowIn(candidate))
-        .sort((a, b) => a.value - b.value)[0];
-
-      if (extra && Math.random() < 0.3) {
-        removeCard(game.botHand, extra.id);
-        game.table.push({ attack: extra, defense: null });
-        setStatus("Бот отбился и подкинул ещё карту. Твой ход!");
-        game.turn = "player";
-        render();
-        return;
-      }
-    }
-
-    setStatus("Бот отбился. Теперь твоя атака.");
+    // После отбивания ход возвращается атакующему игроку:
+    // он может подкинуть карту или завершить раунд кнопкой «Бито».
+    // Защитник-бот не имеет права сам подкидывать карты.
+    game.turn = "player";
+    setStatus(
+      game.attacker === "player"
+        ? "Бот отбился. Можешь подкинуть карту или нажать «Бито»."
+        : "Бот отбился. Теперь твоя атака."
+    );
     render();
-
-    finishRound();
   }
 
   function botTakeOrDefend() {
