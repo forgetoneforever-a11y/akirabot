@@ -110,6 +110,140 @@
     state.game = null;
   }
 
-  function stopPolling() {}
+
+  function cardElement(card, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "playing-card" + ("♥♦".includes(card.suit) ? " red-suit" : "");
+    button.dataset.onlineCard = card.id;
+    button.setAttribute("aria-label", card.rank + card.suit);
+    const rank = document.createElement("span");
+    rank.className = "card-rank";
+    rank.textContent = ({J:"В",Q:"Д",K:"К",A:"Т"})[card.rank] || card.rank;
+    const suit = document.createElement("span");
+    suit.className = "card-suit";
+    suit.textContent = card.suit;
+    button.append(rank, suit);
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function renderOnlineDurak(snapshot) {
+    const game = snapshot.durak;
+    if (!game) return;
+    const seat = snapshot.yourSeat;
+    const isTurn = snapshot.turn === snapshot.yourPlayerId && snapshot.status === "playing";
+    const isAttacker = seat === game.attacker;
+    const isDefender = seat === game.defender;
+    const opponent = $("#durak-opponent-hand");
+    const hand = $("#durak-player-hand");
+    const field = $("#durak-field");
+    const trump = $("#durak-trump");
+    if (!opponent || !hand || !field || !trump) return;
+    opponent.replaceChildren();
+    for (let i = 0; i < Math.min(game.opponentHandCount || 0, 12); i++) {
+      const back = document.createElement("div");
+      back.className = "playing-card card-back";
+      back.textContent = "✦";
+      opponent.appendChild(back);
+    }
+    const opponentLabel = document.createElement("span");
+    opponentLabel.className = "durak-hand-count";
+    const rival = snapshot.players?.[1 - seat];
+    opponentLabel.textContent = (rival?.name || "Соперник") + ": " + (game.opponentHandCount || 0) + " карт";
+    opponent.appendChild(opponentLabel);
+    trump.replaceChildren();
+    const trumpLabel = document.createElement("span");
+    trumpLabel.className = "durak-trump-label";
+    trumpLabel.textContent = "Козырь: ";
+    const trumpValue = document.createElement("strong");
+    trumpValue.textContent = game.trump || "—";
+    trump.append(trumpLabel, trumpValue);
+    const count = document.createElement("span");
+    count.className = "durak-deck-count";
+    count.textContent = " Колода: " + game.deckCount;
+    trump.appendChild(count);
+    field.replaceChildren();
+    if (!game.table.length) {
+      const empty = document.createElement("span");
+      empty.className = "section-description";
+      empty.textContent = "Стол пуст — можно начать атаку";
+      field.appendChild(empty);
+    }
+    for (const pair of game.table) {
+      const pairEl = document.createElement("div");
+      pairEl.className = "durak-card-pair";
+      pairEl.appendChild(cardElement(pair.attack, () => {}));
+      if (pair.defense) {
+        const defense = cardElement(pair.defense, () => {});
+        defense.classList.add("defense-card");
+        pairEl.appendChild(defense);
+      } else {
+        const placeholder = document.createElement("div");
+        placeholder.className = "playing-card defense-placeholder";
+        placeholder.textContent = "…";
+        pairEl.appendChild(placeholder);
+      }
+      field.appendChild(pairEl);
+    }
+    hand.replaceChildren();
+    if (!game.hand.length) {
+      const empty = document.createElement("span");
+      empty.className = "section-description";
+      empty.textContent = "Карт на руках нет";
+      hand.appendChild(empty);
+    }
+    for (const card of game.hand) {
+      const button = cardElement(card, () => {
+        if (!isTurn) return status("Сейчас ход соперника.");
+        let request;
+        if (isAttacker && (game.phase === "attack" || game.phase === "throw")) {
+          request = action("attack", { cardId: card.id });
+        } else if (isDefender && game.phase === "defend") {
+          const target = game.table.find((pair) => !pair.defense);
+          if (!target) return status("Нет карты, которую нужно отбить.");
+          request = action("defend", { attackCardId: target.attack.id, defenseCardId: card.id });
+        } else {
+          return status("Сейчас нельзя сыграть эту карту.");
+        }
+        request.catch((error) => status(error.message));
+      });
+      button.disabled = !isTurn || snapshot.status !== "playing";
+      hand.appendChild(button);
+    }
+    const takeButton = $('[data-durak-action="take"]');
+    const passButton = $('[data-durak-action="pass"]');
+    if (takeButton) {
+      takeButton.disabled = !(isTurn && isDefender && game.phase === "defend");
+      takeButton.textContent = "Взять карты";
+    }
+    if (passButton) {
+      passButton.disabled = !(isTurn && isAttacker && game.phase === "throw");
+      passButton.textContent = "Завершить атаку";
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const take = event.target.closest('[data-durak-action="take"]');
+    const pass = event.target.closest('[data-durak-action="pass"]');
+    if (!take && !pass) return;
+    if (state.game !== "durak" || !state.snapshot?.durak) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (take) action("take").catch((error) => status(error.message));
+    else action("pass").catch((error) => status(error.message));
+  }, true);
+
+  document.addEventListener("akira:online-state", (event) => {
+    const snapshot = event.detail;
+    if (!snapshot) return;
+    if (snapshot.game === "chess" && window.AKIRAChess?.applyOnlineState) {
+      window.AKIRAChess.applyOnlineState(snapshot);
+    } else if (snapshot.game === "durak") {
+      renderOnlineDurak(snapshot);
+    }
+  });
+
+  function stopPolling() { leave(); }
   window.AKIRAOnlineGames = { start, action, ready, leave, stopPolling, getState: () => ({ ...state }) };
 })();
