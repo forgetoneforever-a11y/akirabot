@@ -475,10 +475,10 @@
       const exitButton = event.target.closest("#games-exit-button");
       if (exitButton) {
         event.preventDefault();
-        // Exit the current match back to the games menu, without jumping to the shop.
+        // Return to the main AKIRA screen, not just the arcade menu.
         showMenu();
         if (typeof window.switchTab === "function") {
-          window.switchTab("games");
+          window.switchTab("home");
         }
         return;
       }
