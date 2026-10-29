@@ -661,8 +661,31 @@
             promotion: move.promotion || "q",
           });
         }
+
+        // Надёжный запасной вариант: если оценка позиции не смогла выбрать ход,
+        // выполняем случайный легальный ход из списка chess.js.
+        if (!result && state.game && !state.game.game_over()) {
+          const fallbackMoves = state.game.moves({ verbose: true });
+          if (fallbackMoves.length) {
+            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
+            result = state.game.move({
+              from: fallback.from,
+              to: fallback.to,
+              promotion: fallback.promotion || "q",
+            });
+          }
+        }
       } catch (error) {
         console.error("[AKIRA Chess] Ошибка хода бота:", error);
+        try {
+          const fallbackMoves = state.game && state.game.moves({ verbose: true });
+          if (fallbackMoves && fallbackMoves.length) {
+            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
+            result = state.game.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || "q" });
+          }
+        } catch (fallbackError) {
+          console.error("[AKIRA Chess] Запасной ход тоже не удался:", fallbackError);
+        }
       }
 
       state.thinking = false;
@@ -671,7 +694,7 @@
         if (state.game && state.game.game_over()) {
           checkGameOver();
         } else {
-          setStatus("Бот не ответил. Попробуй ещё раз или начни новую партию.");
+          setStatus("Не удалось выполнить ход бота. Нажми «Новая партия».");
           renderBoard();
           setControlsEnabled(true);
         }
@@ -691,6 +714,7 @@
       if (checkGameOver()) return;
 
       setStatus(`Бот походил: ${result.san}. ${describePosition()}`);
+      setControlsEnabled(true);
     }, state.difficulty === "hard" ? 650 : 450);
   }
 
