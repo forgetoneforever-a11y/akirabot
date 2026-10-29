@@ -62,7 +62,7 @@ async function api(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method || "GET",
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.body === undefined ? undefined : (typeof options.body === "string" ? options.body : JSON.stringify(options.body)),
   });
 
   const raw = await response.text();
@@ -354,7 +354,7 @@ function renderState(data) {
 
   updateUpgradePrices();
   updateDailyRewardButton();
-  loadCollection();
+  if (state.currentTab === "shop") loadCollection();
   loadTasks();
 
   document.dispatchEvent(
@@ -900,7 +900,7 @@ function init() {
   if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
   // Refresh server-authoritative balance so auto-clicker earnings appear while the app is open.
   if (!window.akiraAutoRefresh) window.akiraAutoRefresh = setInterval(() => {
-    if (!document.hidden && !state.loading) loadState();
+    if (!document.hidden && !state.loading && state.currentTab === "home") loadState();
   }, 5000);
   const telegram = window.Telegram?.WebApp;
 
