@@ -964,6 +964,7 @@ body.games-fullscreen #click-area,
 body.games-fullscreen .click-hint,
 body.games-fullscreen .click-stats,
 body.games-fullscreen .navbar { display: none !important; }
+body.games-fullscreen main > .tab-content:not(#tab-games) { display: none !important; }
 body.games-fullscreen #app { width: 100%; max-width: none; min-height: 100dvh; padding: 0; margin: 0; }
 body.games-fullscreen main { width: 100%; max-width: none; margin: 0; padding: 0; }
 #tab-games.games-screen {
