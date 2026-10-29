@@ -856,15 +856,37 @@
   window.destroyChessGame = destroyChessGame;
 
   function applyOnlineChessState(snapshot) {
-    if (!snapshot?.chess || !state.game) {
-      state.game = createChessInstance();
+    if (!snapshot?.chess) return;
+
+    // Replay the authoritative SAN history so the local board, move list,
+    // undo-independent history and terminal-state checks stay in sync.
+    const history = Array.isArray(snapshot.chess.history) ? snapshot.chess.history : [];
+    let synced = createChessInstance();
+    let replayOk = true;
+    for (const san of history) {
+      try {
+        if (!synced.move(san)) {
+          replayOk = false;
+          break;
+        }
+      } catch (error) {
+        replayOk = false;
+        break;
+      }
     }
-    const fen = snapshot?.chess?.fen;
-    if (fen && fen !== "start") {
-      try { state.game.load(fen); } catch (error) { console.warn("[AKIRA Chess] FEN sync failed", error); }
-    } else if (state.game && state.game.fen() !== new window.Chess().fen()) {
-      state.game = createChessInstance();
+
+    if (!replayOk) {
+      synced = createChessInstance();
+      const fen = snapshot.chess.fen;
+      if (fen && fen !== "start") {
+        try {
+          synced.load(fen);
+        } catch (error) {
+          console.warn("[AKIRA Chess] FEN sync failed", error);
+        }
+      }
     }
+    state.game = synced;
     state.mode = "online";
     state.active = snapshot.status === "playing";
     state.finished = snapshot.status === "finished";
