@@ -293,6 +293,11 @@
     state.starting = true;
 
     try {
+      // Clear any previous online room before starting a local bot game.
+      // Otherwise the online click-capture handler can swallow the Durak pass button.
+      if (typeof window.AKIRAOnlineGames?.leave === "function") {
+        window.AKIRAOnlineGames.leave();
+      }
       stopCurrentGame(gameId);
 
       showPanel(gameId);
