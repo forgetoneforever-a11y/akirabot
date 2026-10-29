@@ -2144,3 +2144,13 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
  .rank-ladder span { font-size:9px; padding:4px 6px; }
  .level-progress { width:100%; max-width:180px; }
 }
+
+
+/* Rank avatar frames */
+.profile-avatar, #profile-avatar, .leaderboard-avatar { transition: box-shadow .25s ease, border-color .25s ease, transform .25s ease; }
+.frame-rookie { border:2px solid rgba(255,255,255,.28)!important; }
+.frame-experienced { border:2px solid #83d6ff!important; box-shadow:0 0 0 3px rgba(83,190,255,.13),0 0 16px rgba(83,190,255,.24)!important; }
+.frame-veteran { border:2px solid #b8a1ff!important; box-shadow:0 0 0 3px rgba(157,123,255,.16),0 0 18px rgba(157,123,255,.3)!important; }
+.frame-master { border:2px solid #ffcf70!important; box-shadow:0 0 0 3px rgba(255,190,70,.18),0 0 20px rgba(255,190,70,.32)!important; }
+.frame-emperor { border:2px solid #ff83cb!important; box-shadow:0 0 0 3px rgba(255,100,195,.2),0 0 22px rgba(255,100,195,.35)!important; }
+.frame-legend { border:2px solid #8fffe0!important; box-shadow:0 0 0 3px rgba(90,255,218,.22),0 0 24px rgba(90,255,218,.4)!important; }
