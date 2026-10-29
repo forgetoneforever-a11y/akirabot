@@ -16,6 +16,33 @@ app.set("trust proxy", 1);
 const WEB_APP_URL = process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || "https://akirabot-krl0.onrender.com/";
 const SUPPORT_URL = process.env.SUPPORT_URL || "tg://user?id=8617178928";
 const BOT_API = BOT_TOKEN ? "https://api.telegram.org/bot" + BOT_TOKEN : "";
+function verifyTelegramInitData(initData) {
+  if (!BOT_TOKEN || !initData || typeof initData !== "string") return { valid: false };
+  try {
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get("hash");
+    if (!receivedHash || !/^[a-f0-9]{64}$/i.test(receivedHash)) return { valid: false };
+    params.delete("hash");
+    params.delete("signature");
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => key + "=" + value)
+      .join("\n");
+    const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const expectedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+    const expected = Buffer.from(expectedHash, "hex");
+    const actual = Buffer.from(receivedHash, "hex");
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return { valid: false };
+    const authDate = Number(params.get("auth_date") || 0);
+    if (!authDate || Math.abs(Math.floor(Date.now() / 1000) - authDate) > 86400) return { valid: false };
+    const user = JSON.parse(params.get("user") || "null");
+    if (!user || !user.id) return { valid: false };
+    return { valid: true, user };
+  } catch {
+    return { valid: false };
+  }
+}
+
 let telegramOffset = 0;
 let pollingStarted = false;
 async function telegramCall(method, payload) {
