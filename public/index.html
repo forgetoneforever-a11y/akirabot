@@ -34,6 +34,8 @@
       </div>
     </header>
 
+    <!-- HOME: COOKIE CLICKER -->
+    <section class="tab-content home-screen" id="tab-home">
     <!-- BALANCE -->
     <section class="balance-card">
       <div class="balance-label">ТВОЙ БАЛАНС</div>
@@ -66,10 +68,22 @@
       <span><span id="auto-power">0</span>/сек авто</span>
     </div>
 
+    </section>
+
     <!-- NAVIGATION -->
     <nav class="navbar" aria-label="Главное меню">
       <button
         class="nav-button active"
+        data-tab="home"
+        type="button"
+        aria-label="Главная"
+      >
+        <span>🍪</span>
+        Главная
+      </button>
+
+      <button
+        class="nav-button"
         data-tab="shop"
         type="button"
         aria-label="Магазин"
@@ -122,7 +136,7 @@
     <main>
 
       <!-- SHOP -->
-      <section class="tab-content" id="tab-shop">
+      <section class="tab-content" id="tab-shop" hidden>
         <div class="upgrades-card">
 
           <div class="upgrades-header">
