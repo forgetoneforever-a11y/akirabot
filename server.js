@@ -3,6 +3,8 @@
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const http = require("http");
+const gameServer = require("./public/game-server");
 const { Pool } = require("pg");
 
 const app = express();
@@ -14,6 +16,32 @@ app.set("trust proxy", 1);
 const WEB_APP_URL = process.env.WEB_APP_URL || process.env.RENDER_EXTERNAL_URL || "https://akirabot-krl0.onrender.com/";
 const SUPPORT_URL = process.env.SUPPORT_URL || "tg://user?id=8617178928";
 const BOT_API = BOT_TOKEN ? "https://api.telegram.org/bot" + BOT_TOKEN : "";
+function verifyTelegramInitData(initData) {
+  if (!BOT_TOKEN || !initData || typeof initData !== "string") return { valid: false };
+  try {
+    const params = new URLSearchParams(initData);
+    const receivedHash = params.get("hash");
+    if (!receivedHash || !/^[a-f0-9]{64}$/i.test(receivedHash)) return { valid: false };
+    params.delete("hash");
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => key + "=" + value)
+      .join("\n");
+    const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const expectedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+    const expected = Buffer.from(expectedHash, "hex");
+    const actual = Buffer.from(receivedHash, "hex");
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return { valid: false };
+    const authDate = Number(params.get("auth_date") || 0);
+    if (!authDate || Math.abs(Math.floor(Date.now() / 1000) - authDate) > 86400) return { valid: false };
+    const user = JSON.parse(params.get("user") || "null");
+    if (!user || !user.id) return { valid: false };
+    return { valid: true, user };
+  } catch {
+    return { valid: false };
+  }
+}
+
 let telegramOffset = 0;
 let pollingStarted = false;
 async function telegramCall(method, payload) {
@@ -26,12 +54,12 @@ async function telegramCall(method, payload) {
 async function handleBotUpdate(update) {
   const message = update.message;
   if (!message || !message.text) return;
-  const command = message.text.trim().split(/\\s+/)[0].split("@")[0];
+  const command = message.text.trim().split(/\s+/)[0].split("@")[0];
   if (command === "/start") {
     const name = message.from && message.from.first_name ? message.from.first_name : "Император";
     await telegramCall("sendMessage", {
       chat_id: message.chat.id,
-      text: "🍪 Привет, " + name + "! Добро пожаловать в AKIRA — Cookie Empire.\\n\\nЗарабатывай печеньки, улучшай свою империю, соревнуйся в рейтинге и играй в мини-игры.\\n\\nГотов начать?",
+      text: "🍪 Привет, " + name + "! Добро пожаловать в AKIRA — Cookie Empire.\n\nЗарабатывай печеньки, улучшай свою империю, соревнуйся в рейтинге и играй в мини-игры.\n\nГотов начать?",
       reply_markup: { inline_keyboard: [[
         { text: "🎮 Играть", web_app: { url: WEB_APP_URL } },
         { text: "🛟 Поддержка", url: SUPPORT_URL }
@@ -278,8 +306,8 @@ app.get("/api/state", async (req, res, next) => {
     // Accrue automatic-cookie income on the server, never trust client-side totals.
     const result = await pool.query(
       `UPDATE players
-       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
-           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
+       SET balance = balance + LEAST(86400, GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT)) * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
+           total_earned = total_earned + LEAST(86400, GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT)) * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
            last_auto_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
@@ -697,7 +725,27 @@ async function start() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query(`CREATE TABLE IF NOT EXISTS player_friends(telegram_id TEXT NOT NULL,friend_telegram_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(telegram_id,friend_telegram_id),CHECK(telegram_id<>friend_telegram_id))`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_friends (
+      telegram_id TEXT NOT NULL,
+      friend_telegram_id TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (telegram_id, friend_telegram_id),
+      CHECK (telegram_id <> friend_telegram_id)
+    )
+  `);
+  // Repair older installations where the social tables were created by an earlier schema.
+  await pool.query(`
+    ALTER TABLE player_friends
+      ADD COLUMN IF NOT EXISTS telegram_id TEXT,
+      ADD COLUMN IF NOT EXISTS friend_telegram_id TEXT,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS player_friends_pair_unique
+    ON player_friends (telegram_id, friend_telegram_id)
+  `);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS player_gifts(id BIGSERIAL PRIMARY KEY,sender_id TEXT NOT NULL,recipient_id TEXT NOT NULL,amount BIGINT NOT NULL CHECK(amount>0),request_id TEXT NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(sender_id,request_id))`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_skins (
@@ -746,7 +794,16 @@ async function start() {
     ON players (telegram_id) WHERE telegram_id IS NOT NULL
   `);
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = http.createServer(app);
+  gameServer.attach(httpServer, {
+    cors: { origin: false },
+    verifyPlayer: ({ playerId, initData }) => {
+      const auth = verifyTelegramInitData(initData);
+      if (!auth.valid || String(auth.user.id) !== String(playerId)) return false;
+      return { id: String(auth.user.id) };
+    },
+  });
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`AKIRA server started on port ${PORT}`);
   });
   telegramPollingLoop();

@@ -411,9 +411,8 @@
       return;
     }
 
-    if (state.mode === "bot" && state.game.turn() !== state.playerColor) {
-      return;
-    }
+    if (state.mode !== "online" && state.mode !== "bot") return;
+    if (state.game.turn() !== state.playerColor) return;
 
     const clickedPiece = state.game.get(squareName);
 
@@ -504,6 +503,17 @@
 
     state.moveCount += 1;
 
+    if (state.mode === "online" && window.AKIRAOnlineGames?.action) {
+      window.AKIRAOnlineGames.action("move", {
+        move: { from: move.from, to: move.to, promotion: move.promotion || "q" }
+      }).catch((error) => {
+        // Restore the last authoritative server position if the move was rejected.
+        const onlineState = window.AKIRAOnlineGames?.getState?.();
+        if (onlineState?.snapshot) applyOnlineChessState(onlineState.snapshot);
+        setStatus(error.message || "Ход не принят сервером.");
+      });
+    }
+
     clearSelection();
     renderBoard();
 
@@ -574,30 +584,18 @@
 
   function chooseBotMove() {
     const legalMoves = state.game.moves({ verbose: true });
-
     if (!legalMoves.length) return null;
 
     if (state.difficulty === "easy") {
       return legalMoves[Math.floor(Math.random() * legalMoves.length)];
     }
 
-    const scoredMoves = legalMoves.map((move) => {
-      const score = scoreMove(move);
-
-      return {
-        move,
-        score,
-      };
-    });
-
-    scoredMoves.sort((a, b) => b.score - a.score);
+    const scoredMoves = legalMoves
+      .map((move) => ({ move, score: scoreMove(move) }))
+      .sort((a, b) => b.score - a.score);
 
     if (state.difficulty === "medium") {
-      const candidates = scoredMoves.slice(
-        0,
-        Math.min(5, scoredMoves.length)
-      );
-
+      const candidates = scoredMoves.slice(0, Math.min(5, scoredMoves.length));
       return candidates[Math.floor(Math.random() * candidates.length)].move;
     }
 
@@ -606,16 +604,30 @@
 
     for (const candidate of scoredMoves.slice(0, 12)) {
       const before = state.game.fen();
+      let score = candidate.score;
 
-      state.game.move(candidate.move);
+      try {
+        const played = state.game.move({
+          from: candidate.move.from,
+          to: candidate.move.to,
+          promotion: candidate.move.promotion || "q",
+        });
 
-      let score = -evaluateMaterial();
+        if (played) {
+          score = -evaluateMaterial();
 
-      if (state.game.isCheckmate()) {
-        score += 100000;
+          // chess.js 0.10.x uses in_checkmate(); newer releases use isCheckmate().
+          const isMate =
+            (typeof state.game.in_checkmate === "function" && state.game.in_checkmate()) ||
+            (typeof state.game.isCheckmate === "function" && state.game.isCheckmate());
+
+          if (isMate) score += 100000;
+        }
+      } catch (error) {
+        console.warn("[AKIRA Chess] Не удалось оценить ход бота:", error);
+      } finally {
+        state.game.load(before);
       }
-
-      state.game.load(before);
 
       if (score > bestScore) {
         bestScore = score;
@@ -633,59 +645,83 @@
       !state.active ||
       state.finished ||
       state.mode !== "bot" ||
+      !state.game ||
       state.game.turn() === state.playerColor
     ) {
       return;
     }
 
     state.thinking = true;
-
     setStatus("Бот думает…");
     setControlsEnabled(false);
 
+    const scheduledGame = state.game;
     state.botTimer = setTimeout(() => {
-      if (!state.active || state.finished || !state.game) {
+      // Ignore a stale timer if the user restarted or switched games.
+      if (
+        scheduledGame !== state.game ||
+        !state.active ||
+        state.finished ||
+        state.mode !== "bot"
+      ) {
         state.thinking = false;
         return;
       }
 
-      let move;
+      // The bot must only move when it is actually its turn.
+      if (state.game.turn() === state.playerColor) {
+        state.thinking = false;
+        renderBoard();
+        setStatus("Твой ход.");
+        return;
+      }
+
       let result = null;
-
       try {
-        move = chooseBotMove();
-        if (move) {
-          result = state.game.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q",
-          });
-        }
+        const legalMoves = state.game.moves({ verbose: true });
+        if (legalMoves.length) {
+          let chosen = legalMoves[Math.floor(Math.random() * legalMoves.length)];
 
-        // Надёжный запасной вариант: если оценка позиции не смогла выбрать ход,
-        // выполняем случайный легальный ход из списка chess.js.
-        if (!result && state.game && !state.game.game_over()) {
-          const fallbackMoves = state.game.moves({ verbose: true });
-          if (fallbackMoves.length) {
-            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({
-              from: fallback.from,
-              to: fallback.to,
-              promotion: fallback.promotion || "q",
-            });
+          // Medium/hard prefer captures, promotions, checks and checkmates,
+          // but always keep a random legal move as a safe fallback.
+          if (state.difficulty !== "easy") {
+            const ranked = legalMoves.map((move) => ({
+              move,
+              score:
+                (move.captured ? 100 : 0) +
+                (move.promotion ? 80 : 0) +
+                (move.san?.includes("#") ? 10000 : 0) +
+                (move.san?.includes("+") ? 20 : 0) +
+                Math.random() * (state.difficulty === "hard" ? 5 : 30),
+            })).sort((a, b) => b.score - a.score);
+            const pool = state.difficulty === "hard"
+              ? ranked.slice(0, Math.min(3, ranked.length))
+              : ranked.slice(0, Math.min(6, ranked.length));
+            chosen = pool[Math.floor(Math.random() * pool.length)].move;
+          }
+
+          result = state.game.move({
+            from: chosen.from,
+            to: chosen.to,
+            promotion: chosen.promotion || "q",
+          });
+
+          // If a preferred move is rejected by the installed chess.js version,
+          // retry with a fresh legal move from the current position.
+          if (!result) {
+            const fallbackMoves = state.game.moves({ verbose: true });
+            if (fallbackMoves.length) {
+              const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
+              result = state.game.move({
+                from: fallback.from,
+                to: fallback.to,
+                promotion: fallback.promotion || "q",
+              });
+            }
           }
         }
       } catch (error) {
         console.error("[AKIRA Chess] Ошибка хода бота:", error);
-        try {
-          const fallbackMoves = state.game && state.game.moves({ verbose: true });
-          if (fallbackMoves && fallbackMoves.length) {
-            const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || "q" });
-          }
-        } catch (fallbackError) {
-          console.error("[AKIRA Chess] Запасной ход тоже не удался:", fallbackError);
-        }
       }
 
       state.thinking = false;
@@ -694,21 +730,16 @@
         if (state.game && state.game.game_over()) {
           checkGameOver();
         } else {
-          setStatus("Не удалось выполнить ход бота. Нажми «Новая партия».");
           renderBoard();
           setControlsEnabled(true);
+          setStatus("Бот не смог выбрать ход. Нажми «Новая партия» и попробуй ещё раз.");
         }
         return;
       }
 
-      state.history.push(result);
-      state.lastMove = {
-        from: result.from,
-        to: result.to,
-      };
-
-      state.moveCount += 1;
-
+      state.history = state.game.history({ verbose: true });
+      state.lastMove = { from: result.from, to: result.to };
+      state.moveCount = state.history.length;
       renderBoard();
 
       if (checkGameOver()) return;
@@ -837,35 +868,61 @@
       });
     }
 
-    const undoButton = $("#chess-undo-button");
-
-    if (undoButton) {
-      undoButton.addEventListener("click", (event) => {
-        event.preventDefault();
-        undoChessMove();
-      });
-    }
-
-    const newButton = $("#chess-new-button");
-
-    if (newButton) {
-      newButton.addEventListener("click", (event) => {
-        event.preventDefault();
-
-        startChessGame({
-          mode: state.mode,
-          difficulty: state.difficulty,
-          chessColor: state.playerColor === "w" ? "white" : "black",
-        });
-      });
-    }
+    // Undo/restart controls are handled centrally by games.js to avoid
+    // duplicate click listeners and applying an action twice.
   }
 
   window.startChessGame = startChessGame;
   window.undoChessMove = undoChessMove;
   window.destroyChessGame = destroyChessGame;
 
+  function applyOnlineChessState(snapshot) {
+    if (!snapshot?.chess) return;
+
+    // Replay the authoritative SAN history so the local board, move list,
+    // undo-independent history and terminal-state checks stay in sync.
+    const history = Array.isArray(snapshot.chess.history) ? snapshot.chess.history : [];
+    let synced = createChessInstance();
+    let replayOk = true;
+    for (const san of history) {
+      try {
+        if (!synced.move(san)) {
+          replayOk = false;
+          break;
+        }
+      } catch (error) {
+        replayOk = false;
+        break;
+      }
+    }
+
+    if (!replayOk) {
+      synced = createChessInstance();
+      const fen = snapshot.chess.fen;
+      if (fen && fen !== "start") {
+        try {
+          synced.load(fen);
+        } catch (error) {
+          console.warn("[AKIRA Chess] FEN sync failed", error);
+        }
+      }
+    }
+    state.game = synced;
+    state.mode = "online";
+    state.active = snapshot.status === "playing";
+    state.finished = snapshot.status === "finished";
+    state.thinking = false;
+    state.playerColor = snapshot.chess?.color === "b" ? "b" : "w";
+    state.history = state.game.history({ verbose: true });
+    const last = state.history[state.history.length - 1];
+    state.lastMove = last ? { from: last.from, to: last.to } : null;
+    clearSelection();
+    renderBoard();
+    setStatus(snapshot.message || (state.game.turn() === state.playerColor ? "Твой ход." : "Ход соперника."));
+  }
+
   window.AKIRAChess = {
+    applyOnlineState: applyOnlineChessState,
     start: startChessGame,
     undo: undoChessMove,
     destroy: destroyChessGame,
