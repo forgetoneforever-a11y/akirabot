@@ -941,7 +941,6 @@ function init() {
   initThemes();
   initEventHandlers();
   loadFriends();
-  loadFriends();
   loadCollection();
   initSwipeNavigation();
 
