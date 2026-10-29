@@ -191,6 +191,63 @@ function updateDailyRewardButton() {
   }
 }
 
+async function loadTasks() {
+  const tasksContainer = $("#daily-tasks-list");
+  const achievementsContainer = $("#achievements-list");
+  if (!tasksContainer || !achievementsContainer) return;
+  try {
+    const data = await api("/tasks");
+    tasksContainer.replaceChildren();
+    (data.tasks || []).forEach(task => {
+      const card = document.createElement("article");
+      card.className = "task-card";
+      const title = document.createElement("strong");
+      title.textContent = task.title;
+      const description = document.createElement("p");
+      description.textContent = task.description;
+      const progress = document.createElement("div");
+      progress.className = "task-progress";
+      progress.textContent = `${formatNumber(task.progress)} / ${formatNumber(task.goal)}`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-secondary";
+      button.textContent = task.claimed ? "Получено сегодня" : task.completed ? `Забрать +${formatNumber(task.reward)} 🍪` : `Награда: ${formatNumber(task.reward)} 🍪`;
+      button.disabled = task.claimed || !task.completed;
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          const claimed = await api("/tasks/claim", { method: "POST", body: { task_id: task.id } });
+          if (claimed.player) renderState({ player: claimed.player });
+          showToast(`Получено ${formatNumber(claimed.reward)} печенек!`);
+          await loadTasks();
+        } catch (error) {
+          showToast(error.message || "Не удалось получить награду");
+          await loadTasks();
+        }
+      });
+      card.append(title, description, progress, button);
+      tasksContainer.append(card);
+    });
+    achievementsContainer.replaceChildren();
+    (data.achievements || []).forEach(item => {
+      const card = document.createElement("article");
+      card.className = "achievement-card" + (item.unlocked ? " unlocked" : "");
+      const title = document.createElement("strong");
+      title.textContent = (item.unlocked ? "🏆 " : "🔒 ") + item.title;
+      const description = document.createElement("p");
+      description.textContent = item.description;
+      const progress = document.createElement("div");
+      progress.className = "task-progress";
+      progress.textContent = `${formatNumber(Math.min(item.progress, item.goal))} / ${formatNumber(item.goal)}`;
+      card.append(title, description, progress);
+      achievementsContainer.append(card);
+    });
+  } catch (error) {
+    tasksContainer.textContent = "Не удалось загрузить задания.";
+    achievementsContainer.textContent = "Не удалось загрузить достижения.";
+  }
+}
+
 function renderState(data) {
   if (!data || typeof data !== "object") {
     throw new Error("Сервер вернул пустое состояние игры");
@@ -233,6 +290,7 @@ function renderState(data) {
 
   updateUpgradePrices();
   updateDailyRewardButton();
+  loadTasks();
 
   document.dispatchEvent(
     new CustomEvent("akira:state-updated", { detail: { player } })
