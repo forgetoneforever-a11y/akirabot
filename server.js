@@ -227,7 +227,7 @@ app.get("/api/collection", async (req,res,next)=>{
   const result=await pool.query("SELECT skin_id, equipped, obtained_at FROM player_skins WHERE telegram_id=$1 ORDER BY obtained_at",[req.player.telegram_id]);
   const owned=result.rows.map(row=>({...row,skin:SKINS.find(s=>s.id===row.skin_id)})).filter(row=>row.skin);
   res.json({ok:true,skins:SKINS,owned,cases:Object.values(CASES),equipped:owned.find(s=>s.equipped)?.skin_id||"classic"});
- } catch(error){next(error);}
+ } catch(error){console.error("Ошибка загрузки коллекции:",error);next(error);}
 });
 app.post("/api/cases/open", async (req,res,next)=>{
  const caseId=String(req.body?.case_id||"basic");
@@ -247,7 +247,7 @@ app.post("/api/cases/open", async (req,res,next)=>{
   const updated=await client.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);
   await client.query("COMMIT");
   res.json({ok:true,skin,duplicate:Boolean(already.rowCount),message:already.rowCount?"Повторный скин! Он добавлен в историю кейсов.":"Новый скин добавлен в коллекцию!",player:publicPlayer(updated.rows[0])});
- }catch(error){await client.query("ROLLBACK");next(error);}finally{client.release();}
+ }catch(error){await client.query("ROLLBACK");console.error("Ошибка открытия кейса:",error);next(error);}finally{client.release();}
 });
 app.post("/api/skins/equip", async (req,res,next)=>{
  const skinId=String(req.body?.skin_id||"");
