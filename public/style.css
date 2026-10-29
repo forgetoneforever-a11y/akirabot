@@ -2207,3 +2207,35 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   #tab-home .balance-value { font-size: 28px; }
   #app .navbar .nav-button { min-height: 36px; }
 }
+
+
+/* Cases and cosmetic collection */
+.collection-card { margin-top:12px; padding:14px; border:1px solid rgba(222,213,255,.2); background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(108,83,157,.08)); backdrop-filter:blur(18px); border-radius:20px; }
+.case-list { display:grid; gap:9px; margin:12px 0 18px; }
+.case-item { display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,.12); border-radius:15px; background:rgba(12,10,28,.25); }
+.case-art { display:grid; place-items:center; width:46px; height:46px; border-radius:13px; background:linear-gradient(145deg,rgba(172,139,255,.23),rgba(255,255,255,.04)); font-size:26px; }
+.case-info { display:flex; flex-direction:column; min-width:0; gap:3px; }
+.case-info strong { font-size:12px; }
+.case-info span { font-size:10px; color:var(--muted,#b9b6cb); }
+.case-info .case-price { color:#f6d28b; font-weight:800; }
+.case-item .buy-button { min-width:66px; padding:9px 10px; }
+.collection-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0 10px; }
+.collection-heading .section-title { margin:0; }
+.collection-count { font-size:11px; color:#d4baff; }
+.skin-collection { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.skin-card { display:flex; min-width:0; flex-direction:column; align-items:center; gap:5px; padding:10px 5px 8px; border:1px solid rgba(255,255,255,.12); border-radius:15px; text-align:center; background:rgba(255,255,255,.035); }
+.skin-card strong { font-size:10px; overflow-wrap:anywhere; }
+.skin-card > span { font-size:9px; color:var(--muted,#b9b6cb); }
+.skin-icon { display:grid; place-items:center; width:43px; height:43px; border-radius:50%; background:rgba(255,255,255,.08); font-size:26px; }
+.skin-card.rarity-rare { border-color:rgba(105,224,193,.4); }
+.skin-card.rarity-epic { border-color:rgba(180,154,255,.48); }
+.skin-card.rarity-legendary { border-color:rgba(255,121,200,.55); box-shadow:inset 0 0 15px rgba(255,121,200,.07); }
+.skin-card.locked { opacity:.55; filter:saturate(.5); }
+.skin-card.equipped { box-shadow:0 0 0 1px rgba(135,255,220,.5),0 0 15px rgba(135,255,220,.1); }
+.skin-equip { width:100%; padding:6px 2px; border:1px solid rgba(255,255,255,.14); border-radius:9px; background:rgba(255,255,255,.06); color:inherit; font-size:9px; }
+.skin-equip:disabled { opacity:.55; }
+.case-result { min-height:18px; margin:10px 0 0; font-size:12px; font-weight:700; color:#b8ffe6; }
+.case-result.rarity-epic { color:#c6aaff; }
+.case-result.rarity-legendary { color:#ff91d2; }
+.case-result.error { color:#ff8e9c; }
+@media(max-width:380px) { .case-item { grid-template-columns:38px minmax(0,1fr) auto; gap:7px; padding:8px; } .case-art { width:38px;height:38px;font-size:22px; } .skin-collection { gap:5px; } .skin-icon { width:36px;height:36px;font-size:22px; } .skin-card { padding:8px 3px; } }
