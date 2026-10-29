@@ -1619,3 +1619,40 @@ textarea::placeholder {
   #leaderboard .leaderboard-name { font-size: 12px; }
   #leaderboard .leaderboard-score { font-size: 11px; }
 }
+
+/* AKIRA compact navigation and upgrade controls */
+.navbar, .bottom-nav {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 2px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+.nav-button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 1px;
+  gap: 3px;
+  border-radius: 10px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.nav-button > span:first-child { font-size: 15px; }
+.upgrade-item, .upgrade-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+}
+.upgrade-icon { width: 34px; height: 34px; flex-basis: 34px; }
+.upgrade-info { min-width: 0; width: auto; flex: initial; }
+.buy-button {
+  width: auto;
+  min-width: 60px;
+  min-height: 32px;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
