@@ -66,6 +66,27 @@ const pool = new Pool({
     : undefined
 });
 
+const SKINS = [
+ {id:"classic",name:"Классика",emoji:"🍪",rarity:"common",label:"Обычный",color:"#d8b08a"},
+ {id:"choco",name:"Шоколадная",emoji:"🍫",rarity:"common",label:"Обычный",color:"#b77a54"},
+ {id:"mint",name:"Мятная",emoji:"🍃",rarity:"rare",label:"Редкий",color:"#69e0c1"},
+ {id:"galaxy",name:"Галактика",emoji:"🌌",rarity:"epic",label:"Эпический",color:"#b49aff"},
+ {id:"golden",name:"Золотая",emoji:"🌟",rarity:"epic",label:"Эпический",color:"#ffd36b"},
+ {id:"dragon",name:"Драконья",emoji:"🐉",rarity:"legendary",label:"Легендарный",color:"#ff79c8"}
+];
+const CASES = {
+ basic:{id:"basic",name:"Печеньковый кейс",emoji:"📦",price:2500,description:"Первый шаг к коллекции"},
+ royal:{id:"royal",name:"Королевский кейс",emoji:"👑",price:12000,description:"Больше шансов на редкие скины"}
+};
+function rollSkin(caseId) {
+ const roll=Math.random()*100;
+ let rarity;
+ if(caseId==="royal") rarity=roll<40?"rare":roll<78?"epic":roll<90?"legendary":"common";
+ else rarity=roll<62?"common":roll<88?"rare":roll<98?"epic":"legendary";
+ const pool=SKINS.filter(s=>s.rarity===rarity);
+ return pool[Math.floor(Math.random()*pool.length)];
+}
+
 const UPGRADES = {
   click: { base: 50, factor: 1.65, max: 100, column: "click_power" },
   auto: { base: 250, factor: 1.8, max: 50, column: "auto_level" },
@@ -199,6 +220,47 @@ app.get("/api/health", async (req, res) => {
   } catch {
     res.status(500).json({ ok: false, database: "error" });
   }
+});
+
+app.get("/api/collection", async (req,res,next)=>{
+ try {
+  const result=await pool.query("SELECT skin_id, equipped, obtained_at FROM player_skins WHERE telegram_id=$1 ORDER BY obtained_at",[req.player.telegram_id]);
+  const owned=result.rows.map(row=>({...row,skin:SKINS.find(s=>s.id===row.skin_id)})).filter(row=>row.skin);
+  res.json({ok:true,skins:SKINS,owned,cases:Object.values(CASES),equipped:owned.find(s=>s.equipped)?.skin_id||"classic"});
+ } catch(error){next(error);}
+});
+app.post("/api/cases/open", async (req,res,next)=>{
+ const caseId=String(req.body?.case_id||"basic");
+ const cfg=CASES[caseId];
+ if(!cfg)return res.status(400).json({error:"Неизвестный кейс"});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT * FROM players WHERE telegram_id=$1 FOR UPDATE",[req.player.telegram_id]);
+  const player=found.rows[0];
+  if(Number(player.balance||0)<cfg.price){await client.query("ROLLBACK");return res.status(400).json({error:"Не хватает печенек для открытия кейса"});}
+  const skin=rollSkin(caseId);
+  const already=await client.query("SELECT 1 FROM player_skins WHERE telegram_id=$1 AND skin_id=$2",[req.player.telegram_id,skin.id]);
+  await client.query("UPDATE players SET balance=balance-$1 WHERE telegram_id=$2",[cfg.price,req.player.telegram_id]);
+  await client.query("INSERT INTO player_case_history (telegram_id,case_id,skin_id,rarity) VALUES ($1,$2,$3,$4)",[req.player.telegram_id,caseId,skin.id,skin.rarity]);
+  await client.query("INSERT INTO player_skins (telegram_id,skin_id,equipped) VALUES ($1,$2,FALSE) ON CONFLICT (telegram_id,skin_id) DO NOTHING",[req.player.telegram_id,skin.id]);
+  const updated=await client.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);
+  await client.query("COMMIT");
+  res.json({ok:true,skin,duplicate:Boolean(already.rowCount),message:already.rowCount?"Повторный скин! Он добавлен в историю кейсов.":"Новый скин добавлен в коллекцию!",player:publicPlayer(updated.rows[0])});
+ }catch(error){await client.query("ROLLBACK");next(error);}finally{client.release();}
+});
+app.post("/api/skins/equip", async (req,res,next)=>{
+ const skinId=String(req.body?.skin_id||"");
+ if(!SKINS.some(s=>s.id===skinId))return res.status(400).json({error:"Неизвестный скин"});
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const owned=await client.query("SELECT 1 FROM player_skins WHERE telegram_id=$1 AND skin_id=$2",[req.player.telegram_id,skinId]);
+  if(!owned.rowCount){await client.query("ROLLBACK");return res.status(403).json({error:"Сначала найди этот скин в кейсе"});}
+  await client.query("UPDATE player_skins SET equipped=(skin_id=$2) WHERE telegram_id=$1",[req.player.telegram_id,skinId]);
+  await client.query("COMMIT");
+  res.json({ok:true,equipped:skinId});
+ }catch(error){await client.query("ROLLBACK");next(error);}finally{client.release();}
 });
 
 app.get("/api/state", async (req, res, next) => {
@@ -590,6 +652,30 @@ async function start() {
     WHERE last_daily IS NOT NULL AND last_daily_at IS NULL
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_skins (
+      telegram_id TEXT NOT NULL,
+      skin_id TEXT NOT NULL,
+      equipped BOOLEAN NOT NULL DEFAULT FALSE,
+      obtained_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (telegram_id, skin_id)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_case_history (
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      case_id TEXT NOT NULL,
+      skin_id TEXT NOT NULL,
+      rarity TEXT NOT NULL,
+      opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    INSERT INTO player_skins (telegram_id, skin_id, equipped)
+    SELECT telegram_id, 'classic', TRUE FROM players
+    ON CONFLICT (telegram_id, skin_id) DO NOTHING
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_rank_rewards (
       id BIGSERIAL PRIMARY KEY, telegram_id TEXT NOT NULL, rank_id TEXT NOT NULL, reward BIGINT NOT NULL,
