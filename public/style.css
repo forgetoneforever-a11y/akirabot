@@ -2005,3 +2005,90 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   backdrop-filter: blur(32px) saturate(165%) !important;
   -webkit-backdrop-filter: blur(32px) saturate(165%) !important;
 }
+
+
+/* AKIRA final glass + responsive pass */
+:root {
+  --glass-line: rgba(224, 218, 255, .22);
+  --glass-fill: rgba(27, 31, 50, .58);
+}
+#app {
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding-inline: clamp(8px, 2vw, 18px);
+}
+#app .card,
+#app .panel,
+#app .profile-card,
+#app .upgrade-item,
+#app .upgrade-card,
+#app .shop-item,
+#app .leaderboard-item,
+#app .theme-card {
+  border-color: var(--glass-line);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.018) 55%),
+    var(--glass-fill);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.085), 0 12px 28px rgba(0,0,0,.14);
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+#app .tab-content[hidden],
+#tab-games[hidden],
+#game-menu-panel[hidden],
+#durak-game-panel[hidden],
+#chess-game-panel[hidden] { display: none !important; }
+#app .navbar { position: relative; z-index: 5; }
+#app .nav-button { min-width: 0; white-space: nowrap; }
+#app .nav-button > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+#app button:focus-visible,
+#app select:focus-visible,
+#app input:focus-visible {
+  outline: 2px solid rgba(191, 157, 255, .9);
+  outline-offset: 2px;
+}
+@media (max-width: 520px) {
+  #app { padding-inline: 8px; }
+  #app > .header { gap: 8px; }
+  #app .navbar {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 2px;
+    padding: 4px;
+  }
+  #app .navbar .nav-button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 5px 0;
+    gap: 3px;
+    font-size: clamp(8px, 2.5vw, 10px);
+  }
+  #app .navbar .nav-button > span:first-child { font-size: 15px; }
+  #app .balance-card { padding: 16px; }
+  #tab-home .cookie-stage {
+    min-height: clamp(220px, 64vw, 330px);
+    border-radius: 22px;
+  }
+  #app .upgrade-item,
+  #app .upgrade-card,
+  #app .shop-item {
+    gap: 9px;
+    padding: 10px;
+  }
+  #app .upgrade-item button,
+  #app .upgrade-card button,
+  #app .shop-item button { flex-shrink: 0; }
+}
+@media (max-width: 370px) {
+  #app .navbar .nav-button { font-size: 8px; letter-spacing: -.2px; }
+  #app .navbar .nav-button > span:first-child { font-size: 14px; }
+  #app .level-badge { padding: 6px 8px; font-size: 9px; }
+  #tab-home .cookie-stage { min-height: 210px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app *, #app *::before, #app *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
