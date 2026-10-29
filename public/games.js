@@ -475,9 +475,10 @@
       const exitButton = event.target.closest("#games-exit-button");
       if (exitButton) {
         event.preventDefault();
+        // Exit the current match back to the games menu, without jumping to the shop.
         showMenu();
         if (typeof window.switchTab === "function") {
-          window.switchTab("shop");
+          window.switchTab("games");
         }
         return;
       }
