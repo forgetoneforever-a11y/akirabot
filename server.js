@@ -110,6 +110,9 @@ function publicPlayer(player) {
     click_power: Number(player.click_power || 1),
     auto_level: Number(player.auto_level || 0),
     auto_power: Number(player.auto_level || 0),
+    prestige_level: Number(player.prestige_level || 0),
+    prestige_crystals: Number(player.prestige_crystals || 0),
+    prestige_multiplier: 1 + Number(player.prestige_level || 0) * 0.1,
     multiplier_level: Number(player.multiplier_level || 0),
     rank_title: rankForEarned(Number(player.total_earned || 0)).title,
     rank_id: rankForEarned(Number(player.total_earned || 0)).rank,
@@ -268,8 +271,8 @@ app.get("/api/state", async (req, res, next) => {
     // Accrue automatic-cookie income on the server, never trust client-side totals.
     const result = await pool.query(
       `UPDATE players
-       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level,
-           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level,
+       SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1),
+           total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1),
            last_auto_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
@@ -294,7 +297,7 @@ app.post("/api/click", async (req, res, next) => {
 
     const player = result.rows[0];
     const rankBoost = rankForEarned(Number(player.total_earned || 0)).multiplier;
-    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost);
+    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost * (1 + Number(player.prestige_level || 0) * 0.1));
 
     const updated = await client.query(
       `UPDATE players
@@ -361,6 +364,24 @@ async function purchaseUpgrade(req, res, next) {
 
 app.post("/api/buy", purchaseUpgrade);
 app.post("/api/upgrades", purchaseUpgrade);
+
+app.post("/api/prestige", async (req,res,next)=>{
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const found=await client.query("SELECT * FROM players WHERE telegram_id=$1 FOR UPDATE",[req.player.telegram_id]);
+  const player=found.rows[0];
+  const level=Number(player.prestige_level||0);
+  const required=Math.floor(1000000*Math.pow(2,level));
+  const balance=Number(player.balance||0);
+  if(balance<required){await client.query("ROLLBACK");return res.status(400).json({error:"Нужно накопить "+required.toLocaleString("ru-RU")+" печенек для перерождения",required,balance});}
+  const crystals=Math.max(1,level+1);
+  const updated=await client.query("UPDATE players SET balance=0, click_power=1, auto_level=0, multiplier_level=0, prestige_level=prestige_level+1, prestige_crystals=prestige_crystals+$1, last_auto_at=NOW() WHERE telegram_id=$2 RETURNING *",[crystals,player.telegram_id]);
+  await client.query("INSERT INTO player_prestige_history (telegram_id, prestige_level, crystals_awarded, balance_before) VALUES ($1,$2,$3,$4)",[player.telegram_id,level+1,crystals,balance]);
+  await client.query("COMMIT");
+  res.json({ok:true,crystals_awarded:crystals,required,player:publicPlayer(updated.rows[0]),message:"Перерождение завершено! Постоянный бонус к заработку увеличен."});
+ }catch(error){await client.query("ROLLBACK");next(error);}finally{client.release();}
+});
 
 app.post("/api/daily", async (req, res, next) => {
   const client = await pool.connect();
@@ -620,6 +641,8 @@ async function start() {
       click_power INTEGER NOT NULL DEFAULT 1,
       auto_level INTEGER NOT NULL DEFAULT 0,
       multiplier_level INTEGER NOT NULL DEFAULT 0,
+      prestige_level INTEGER NOT NULL DEFAULT 0,
+      prestige_crystals BIGINT NOT NULL DEFAULT 0,
       last_daily DATE,
       last_auto_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -637,6 +660,8 @@ async function start() {
       ADD COLUMN IF NOT EXISTS click_power INTEGER NOT NULL DEFAULT 1,
       ADD COLUMN IF NOT EXISTS auto_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS prestige_level INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS prestige_crystals BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS last_daily DATE,
       ADD COLUMN IF NOT EXISTS last_daily_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS last_auto_at TIMESTAMPTZ,
@@ -652,6 +677,16 @@ async function start() {
     WHERE last_daily IS NOT NULL AND last_daily_at IS NULL
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS player_prestige_history (
+      id BIGSERIAL PRIMARY KEY,
+      telegram_id TEXT NOT NULL,
+      prestige_level INTEGER NOT NULL,
+      crystals_awarded BIGINT NOT NULL,
+      balance_before BIGINT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS player_skins (
       telegram_id TEXT NOT NULL,
