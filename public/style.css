@@ -1946,3 +1946,34 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   #app > .header .brand-title { font-size: 23px; }
   #app .navbar .nav-button { min-height: 44px; font-size: 9px; }
 }
+
+
+/* Remove the extra rectangular frame around the AKIRA wordmark only */
+#app > .header .brand,
+#app > .header .brand-info,
+#app > .header .brand-text,
+#app > .header .brand-copy,
+#app > .header .brand-name,
+#app > .header .brand-details {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+#app > .header .brand::before,
+#app > .header .brand::after,
+#app > .header .brand-info::before,
+#app > .header .brand-info::after,
+#app > .header .brand-text::before,
+#app > .header .brand-text::after {
+  content: none !important;
+  display: none !important;
+}
+#app > .header .brand-title,
+#app > .header .brand-subtitle {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
