@@ -26,12 +26,12 @@ async function telegramCall(method, payload) {
 async function handleBotUpdate(update) {
   const message = update.message;
   if (!message || !message.text) return;
-  const command = message.text.trim().split(/\\s+/)[0].split("@")[0];
+  const command = message.text.trim().split(/\s+/)[0].split("@")[0];
   if (command === "/start") {
     const name = message.from && message.from.first_name ? message.from.first_name : "Император";
     await telegramCall("sendMessage", {
       chat_id: message.chat.id,
-      text: "🍪 Привет, " + name + "! Добро пожаловать в AKIRA — Cookie Empire.\\n\\nЗарабатывай печеньки, улучшай свою империю, соревнуйся в рейтинге и играй в мини-игры.\\n\\nГотов начать?",
+      text: "🍪 Привет, " + name + "! Добро пожаловать в AKIRA — Cookie Empire.\n\nЗарабатывай печеньки, улучшай свою империю, соревнуйся в рейтинге и играй в мини-игры.\n\nГотов начать?",
       reply_markup: { inline_keyboard: [[
         { text: "🎮 Играть", web_app: { url: WEB_APP_URL } },
         { text: "🛟 Поддержка", url: SUPPORT_URL }
