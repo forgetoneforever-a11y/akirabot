@@ -270,6 +270,9 @@ async function loadCollection(){
   collectionEl.replaceChildren();
   const owned=new Set(data.owned.map(item=>item.skin_id));
   const equipped=data.equipped;
+  const currentSkin=data.skins.find(s=>s.id===equipped);
+  const cookieButton=$("#cookie-button");
+  if(cookieButton&&currentSkin)cookieButton.textContent=currentSkin.emoji;
   const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+data.skins.length;
   data.skins.forEach(skin=>{
    const item=data.owned.find(row=>row.skin_id===skin.id);
@@ -912,6 +915,7 @@ function init() {
 
   initThemes();
   initEventHandlers();
+  loadCollection();
   initSwipeNavigation();
 
   switchTab("home");
