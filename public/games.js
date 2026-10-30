@@ -224,6 +224,7 @@
     }
 
     updateLobbySection();
+    updateSettingsVisibility();
 
     const startButton = $("#start-game-button");
     if (startButton) {
@@ -268,6 +269,19 @@
 
     readSettings();
     updateLobbySection();
+  }
+
+  function updateSettingsVisibility() {
+    const online = state.mode === "online";
+    const isChess = state.selectedGame === "chess";
+    const durakMode = $("#durak-mode-option");
+    const difficulty = $("#game-difficulty-option");
+    const chessColor = $("#chess-color-option");
+    if (durakMode) durakMode.hidden = online || isChess;
+    if (difficulty) difficulty.hidden = online;
+    if (chessColor) chessColor.hidden = !isChess;
+    const settings = $("#game-settings");
+    if (settings) settings.hidden = online && !isChess;
   }
 
   function updateLobbySection() {
