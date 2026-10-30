@@ -537,8 +537,15 @@ function normalizeUpgradeCards() {
     const info = card.querySelector(".upgrade-info");
     if (!info) return;
     const levels = info.querySelectorAll(".upgrade-level");
-    // Keep a single level label even if an old cached fragment was duplicated.
     levels.forEach((item, index) => { if (index > 0) item.remove(); });
+    // Older cached markup may have repeated plain text instead of a second level node.
+    const label = info.querySelector(".upgrade-level");
+    if (label) {
+      const duplicateText = Array.from(info.children).filter((node) =>
+        node !== label && /^Уровень:\\s*\\d+\\s*\\/\\s*20$/.test((node.textContent || "").trim())
+      );
+      duplicateText.forEach((node) => node.remove());
+    }
   });
 }
 
