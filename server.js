@@ -791,10 +791,19 @@ async function start() {
   `);
 
   gameServer.attach(httpServer, {
-    verifyPlayer: ({ playerId, initData }) => {
+    verifyPlayer: async ({ playerId, initData }) => {
       const auth = verifyTelegramInitData(initData);
       if (!auth.valid || String(auth.user.id) !== String(playerId)) return false;
-      return { id: String(auth.user.id) };
+      const result = await pool.query(
+        "SELECT name, username, avatar_url FROM players WHERE telegram_id = $1 LIMIT 1",
+        [String(auth.user.id)]
+      );
+      const profile = result.rows[0] || {};
+      return {
+        id: String(auth.user.id),
+        name: profile.name || profile.username || auth.user.first_name || "Игрок",
+        avatar: profile.avatar_url || null
+      };
     },
   });
 
