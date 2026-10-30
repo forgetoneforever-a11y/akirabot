@@ -175,6 +175,20 @@
     return $("#chess-board");
   }
 
+  function findKingSquare(color) {
+    if (!state.game) return null;
+    const rows = state.game.board();
+    for (let row = 0; row < 8; row += 1) {
+      for (let col = 0; col < 8; col += 1) {
+        const piece = rows[row][col];
+        if (piece && piece.type === "k" && piece.color === color) {
+          return getSquareName(row, col);
+        }
+      }
+    }
+    return null;
+  }
+
   function renderBoard() {
     const board = getBoardElement();
 
@@ -212,6 +226,16 @@
 
           if (piece) {
             square.classList.add("capture-target");
+          }
+        }
+
+        if (state.game.isCheck()) {
+          const checkedColor = state.game.turn();
+          const kingSquare = findKingSquare(checkedColor);
+          if (kingSquare === squareName) {
+            square.classList.add("in-check");
+            square.style.background = "radial-gradient(circle, rgba(255,65,90,.78), rgba(160,20,45,.42))";
+            square.style.boxShadow = "inset 0 0 0 4px #ff405d, 0 0 18px rgba(255,55,85,.75)";
           }
         }
 
