@@ -440,9 +440,8 @@ function finishDurakRound(io, room, tookCards) {
       if (pair.defense) defender.hand.push(pair.defense);
     }
 
+    // If the defender takes the cards, the same attacker attacks again.
     game.table = [];
-    game.attacker = 1 - game.attacker;
-    game.defender = 1 - game.attacker;
     game.phase = "attack";
   } else {
     game.table = [];
