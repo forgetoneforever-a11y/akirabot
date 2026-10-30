@@ -451,7 +451,19 @@
         item.className = "chess-lobby-item";
         const avatar = document.createElement("div");
         avatar.className = "lobby-player-avatar";
-        avatar.textContent = (room.players?.[0]?.name || "И").trim().charAt(0).toUpperCase();
+        const avatarUrl = room.players?.[0]?.avatar;
+        if (avatarUrl) {
+          const image = document.createElement("img");
+          image.src = avatarUrl;
+          image.alt = "Аватар " + (room.players?.[0]?.name || "игрока");
+          image.loading = "lazy";
+          image.onerror = () => {
+            avatar.textContent = (room.players?.[0]?.name || "И").trim().charAt(0).toUpperCase();
+          };
+          avatar.appendChild(image);
+        } else {
+          avatar.textContent = (room.players?.[0]?.name || "И").trim().charAt(0).toUpperCase();
+        }
         const info = document.createElement("div");
         info.className = "lobby-player-info";
         const name = document.createElement("strong");
