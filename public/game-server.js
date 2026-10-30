@@ -31,7 +31,8 @@ function safeName(value) {
 }
 
 function safeAvatar(value) {
-  if (typeof value !== "string" || value.length > 2048) return null;
+  if (typeof value !== "string" || value.length > 1500000) return null;
+  if (/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) return value;
   if (/^https:\/\/[^\s]+$/i.test(value)) return value;
   if (/^\/images\/[a-zA-Z0-9._/-]+$/.test(value)) return value;
   return null;
@@ -700,8 +701,8 @@ function registerHandlers(io, socket) {
         game,
         player: {
           id: playerId,
-          name: safeName(payload.name),
-          avatar: safeAvatar(payload.avatar),
+          name: socket.data.playerName || safeName(payload.name),
+          avatar: socket.data.playerAvatar || safeAvatar(payload.avatar),
           socketId: socket.id,
         },
       });
@@ -764,8 +765,8 @@ function registerHandlers(io, socket) {
 
       joinRoom(room, {
         id: playerId,
-        name: safeName(payload.name),
-        avatar: safeAvatar(payload.avatar),
+        name: socket.data.playerName || safeName(payload.name),
+        avatar: socket.data.playerAvatar || safeAvatar(payload.avatar),
         socketId: socket.id,
       });
 
@@ -852,8 +853,8 @@ function registerHandlers(io, socket) {
 
       const player = {
         id: playerId,
-        name: safeName(payload.name),
-        avatar: safeAvatar(payload.avatar),
+        name: socket.data.playerName || safeName(payload.name),
+        avatar: socket.data.playerAvatar || safeAvatar(payload.avatar),
         socketId: socket.id,
       };
 
@@ -1164,6 +1165,8 @@ function attach(httpServer, options = {}) {
           socket.data.playerId = String(
             typeof verified === "string" ? verified : verified.id || playerId
           );
+          socket.data.playerName = typeof verified === "object" ? safeName(verified.name) : "Игрок";
+          socket.data.playerAvatar = typeof verified === "object" ? safeAvatar(verified.avatar) : null;
 
           next();
         })
