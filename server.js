@@ -2,7 +2,7 @@
 
 const express = require("express");
 const http = require("http");
-const gameServer = require("./game-server");
+const gameServer = require("./public/game-server");
 const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
