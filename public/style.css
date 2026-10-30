@@ -2455,3 +2455,7 @@ body[data-theme="classic"],
   #monthly-leaderboard .leaderboard-avatar { width:40px; height:40px; min-width:40px; max-width:40px; }
   #monthly-leaderboard .leaderboard-score { max-width:84px; font-size:10px; }
 }
+
+.monthly-period-meta{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none}
+.monthly-countdown{color:var(--muted,#aab5c5);font-size:10px;font-weight:800;line-height:1.3;text-align:right;white-space:nowrap}
+@media(max-width:420px){.monthly-countdown{font-size:9px;white-space:normal;max-width:118px}}
