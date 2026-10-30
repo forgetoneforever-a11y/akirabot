@@ -2418,3 +2418,40 @@ body[data-theme="classic"],
 }
 
 .monthly-leaderboard-card{margin:18px 0 10px;padding:14px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.018))}.monthly-leaderboard-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}.monthly-leaderboard-heading h3{margin:0 0 5px;font-size:16px}.monthly-period-label{flex:none;padding:6px 9px;border:1px solid var(--border-strong,rgba(255,255,255,.25));border-radius:999px;color:var(--text,#fff);font-size:11px;font-weight:800}.monthly-leaderboard-row{margin-top:7px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:13px;background:rgba(255,255,255,.025)}.monthly-leaderboard-row:first-child{border-color:var(--border-strong,rgba(255,255,255,.3))}
+
+
+/* Monthly leaderboard: compact, polished rows */
+#monthly-leaderboard { display:flex; flex-direction:column; gap:9px; }
+#monthly-leaderboard .monthly-leaderboard-row {
+  display:grid;
+  grid-template-columns:30px 44px minmax(0,1fr) auto;
+  align-items:center;
+  gap:9px;
+  min-height:76px;
+  padding:12px 10px;
+  border-radius:16px;
+  background:linear-gradient(120deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+  border:1px solid rgba(255,255,255,.12);
+}
+#monthly-leaderboard .monthly-leaderboard-row:first-child {
+  border-color:rgba(220,91,151,.58);
+  background:linear-gradient(115deg,rgba(220,91,151,.12),rgba(255,255,255,.025) 65%);
+  box-shadow:0 5px 18px rgba(0,0,0,.12);
+}
+#monthly-leaderboard .leaderboard-details { min-width:0; display:flex; flex-direction:column; gap:5px; }
+#monthly-leaderboard .leaderboard-name { display:block; font-size:13px; line-height:1.3; }
+#monthly-leaderboard .leaderboard-level { font-size:11px; line-height:1.25; overflow-wrap:anywhere; }
+#monthly-leaderboard .leaderboard-score {
+  max-width:112px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  font-size:11px;
+  line-height:1.25;
+  text-align:right;
+  font-weight:800;
+}
+@media(max-width:420px) {
+  #monthly-leaderboard .monthly-leaderboard-row { grid-template-columns:27px 40px minmax(0,1fr) 84px; gap:7px; padding:10px 8px; }
+  #monthly-leaderboard .leaderboard-avatar { width:40px; height:40px; min-width:40px; max-width:40px; }
+  #monthly-leaderboard .leaderboard-score { max-width:84px; font-size:10px; }
+}
