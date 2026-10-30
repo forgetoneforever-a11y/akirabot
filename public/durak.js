@@ -82,6 +82,8 @@
     message: "",
     botTimer: null,
     actionLocked: false,
+    onlineCanTake: false,
+    onlineCanPass: false,
   };
 
   let nextCardId = 1;
@@ -269,7 +271,7 @@
 
     const label = document.createElement("span");
     label.className = "durak-hand-count";
-    label.textContent = `Бот: ${count} карт`;
+    label.textContent = `${game.mode === "online" ? "Соперник" : "Бот"}: ${count} карт`;
 
     container.appendChild(label);
   }
@@ -368,12 +370,12 @@
       !game.actionLocked;
 
     if (takeButton) {
-      takeButton.disabled = !canAct || game.defender !== "player";
+      takeButton.disabled = !canAct || (game.mode === "online" ? !game.onlineCanTake : game.defender !== "player");
       takeButton.textContent = "Взять карты";
     }
 
     if (passButton) {
-      passButton.disabled = !canAct;
+      passButton.disabled = !canAct || (game.mode === "online" && !game.onlineCanPass);
       passButton.textContent =
         game.attacker === "player" && game.defender === "bot"
           ? "Завершить ход"
@@ -470,22 +472,11 @@
     game.turn = game.attacker;
 
     if (game.mode === "online") {
-      game.active = false;
-      game.finished = true;
-      game.message =
-        "Онлайн-матчи требуют подключения игрового сервера. Начни игру против бота.";
+      game.active = true;
+      game.finished = false;
+      game.message = "Подключено. Ожидаем состояние матча…";
       render();
-
-      document.dispatchEvent(
-        new CustomEvent("akira:game-status", {
-          detail: {
-            game: "durak",
-            message: game.message,
-          },
-        })
-      );
-
-      return { message: game.message };
+      return { success: true, message: game.message };
     }
 
     game.message =
@@ -514,6 +505,21 @@
 
     const card = game.playerHand.find((item) => item.id === cardId);
     if (!card) return;
+
+    if (game.mode === "online") {
+      if (game.defender === "player") {
+        const pair = game.table.find((item) => !item.defense);
+        if (!pair) return;
+        window.AKIRAOnlineGames?.action("defend", {
+          attackCardId: pair.attack.id,
+          defenseCardId: card.id
+        }).catch((error) => setStatus(error.message || "Не удалось отбиться."));
+      } else if (game.attacker === "player") {
+        window.AKIRAOnlineGames?.action("attack", { cardId: card.id })
+          .catch((error) => setStatus(error.message || "Не удалось положить карту."));
+      }
+      return;
+    }
 
     if (game.defender === "player") {
       defendWithCard(card);
@@ -759,6 +765,14 @@
   }
 
   function playerTakeCards() {
+    if (game.mode === "online") {
+      if (game.onlineCanTake) {
+        window.AKIRAOnlineGames?.action("take")
+          .catch((error) => setStatus(error.message || "Не удалось взять карты."));
+      }
+      return;
+    }
+
     if (
       !game.active ||
       game.finished ||
@@ -772,6 +786,14 @@
   }
 
   function playerPass() {
+    if (game.mode === "online") {
+      if (game.onlineCanPass) {
+        window.AKIRAOnlineGames?.action("pass")
+          .catch((error) => setStatus(error.message || "Не удалось завершить ход."));
+      }
+      return;
+    }
+
     if (!game.active || game.finished || game.turn !== "player") return;
 
     if (game.defender === "player") {
@@ -993,11 +1015,44 @@
     game.actionLocked = false;
   }
 
+  function applyOnlineDurakState(snapshot) {
+    if (game.mode !== "online" || !snapshot?.durak) return;
+    const data = snapshot.durak;
+    const suitMap = { "♠": "spades", "♣": "clubs", "♦": "diamonds", "♥": "hearts" };
+    const rankMap = { J: 11, Q: 12, K: 13, A: 14 };
+    const makeCard = (card) => {
+      if (!card) return null;
+      const suit = suitMap[card.suit] || card.suit;
+      const value = Number(card.rank) || rankMap[card.rank] || 6;
+      const label = value === 11 ? "В" : value === 12 ? "Д" : value === 13 ? "К" : value === 14 ? "Т" : String(value);
+      return { id: String(card.id), suit, symbol: card.suit, red: suit === "hearts" || suit === "diamonds", value, label, rank: card.rank };
+    };
+    game.trumpSuit = suitMap[data.trump] || data.trump;
+    game.trumpCard = null;
+    game.deck = Array.from({ length: data.deckCount || 0 }, (_, index) => ({ id: "hidden-" + index }));
+    game.playerHand = (data.hand || []).map(makeCard);
+    game.botHand = Array.from({ length: data.opponentHandCount || 0 }, (_, index) => ({ id: "opponent-" + index }));
+    game.table = (data.table || []).map((pair) => ({ attack: makeCard(pair.attack), defense: makeCard(pair.defense) }));
+    game.discard = [];
+    game.attacker = data.attacker === snapshot.yourSeat ? "player" : "bot";
+    game.defender = data.defender === snapshot.yourSeat ? "player" : "bot";
+    game.turn = snapshot.turn && snapshot.turn === snapshot.yourPlayerId ? "player" : "bot";
+    game.onlineCanTake = Boolean(data.canTake);
+    game.onlineCanPass = Boolean(data.canPass);
+    game.active = snapshot.status === "playing";
+    game.finished = snapshot.status === "finished";
+    game.actionLocked = false;
+    game.selectedCardId = null;
+    game.message = snapshot.message || "";
+    render();
+  }
+
   window.startDurakGame = startDurakGame;
   window.destroyDurakGame = destroyDurakGame;
 
   window.AKIRADurak = {
     start: startDurakGame,
+    applyOnlineState: applyOnlineDurakState,
     takeCards: playerTakeCards,
     pass: playerPass,
     render,
