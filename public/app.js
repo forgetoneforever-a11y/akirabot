@@ -874,7 +874,7 @@ async function loadMonthlyLeaderboard() {
       details.append(name, level);
       const score = document.createElement("span");
       score.className = "leaderboard-score";
-      score.textContent = formatNumber(player.monthly_earned) + " за месяц";
+      score.textContent = new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 }).format(Number(player.monthly_earned || 0)) + " за месяц";
       row.append(rank, avatar, details, score);
       container.append(row);
     });
