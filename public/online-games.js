@@ -72,7 +72,7 @@
     state.roomCode = null;
     state.snapshot = null;
     try {
-      const result = await emitAck(socket, "game:quick-match", { ...identityCache, game });
+      const result = await emitAck(socket, "game:quick-match", { ...identityCache, game, chessColor: options.chessColor || "random" });
       state.roomCode = result.roomCode;
       if (game === "chess") window.startChessGame?.({ mode: "online" });
       if (game === "durak") window.startDurakGame?.({ mode: "online" });
@@ -90,9 +90,9 @@
     return result.rooms || [];
   }
 
-  async function joinLobby(code, game = "chess") {
+  async function joinLobby(code, game = "chess", options = {}) {
     const socket = await connect();
-    const result = await emitAck(socket, "game:join", { ...identityCache, roomCode: code, game });
+    const result = await emitAck(socket, "game:join", { ...identityCache, roomCode: code, game, chessColor: options.chessColor || "random" });
     state.game = game;
     state.roomCode = result.roomCode;
     if (game === "chess") window.startChessGame?.({ mode: "online" });
