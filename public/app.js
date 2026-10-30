@@ -833,6 +833,24 @@ function initSwipeNavigation() {
    РЕЙТИНГ
 ========================= */
 
+function updateMonthlyCountdown() {
+  const el = $("#monthly-countdown");
+  if (!el) return;
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+  let remaining = Math.max(0, nextMonth.getTime() - now.getTime());
+  const days = Math.floor(remaining / 86400000); remaining %= 86400000;
+  const hours = Math.floor(remaining / 3600000); remaining %= 3600000;
+  const minutes = Math.floor(remaining / 60000); remaining %= 60000;
+  const seconds = Math.floor(remaining / 1000);
+  const parts = [];
+  if (days) parts.push(days + " д");
+  parts.push(String(hours).padStart(2, "0") + " ч");
+  parts.push(String(minutes).padStart(2, "0") + " мин");
+  parts.push(String(seconds).padStart(2, "0") + " сек");
+  el.textContent = "До сброса: " + parts.join(" ");
+}
+
 async function loadMonthlyLeaderboard() {
   const container = $("#monthly-leaderboard");
   if (!container) return;
@@ -1163,6 +1181,8 @@ function initEventHandlers() {
 
 function init() {
   if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
+  updateMonthlyCountdown();
+  if (!window.akiraMonthlyCountdown) window.akiraMonthlyCountdown = setInterval(updateMonthlyCountdown, 1000);
   // Refresh server-authoritative balance so auto-clicker earnings appear while the app is open.
   if (!window.akiraAutoRefresh) window.akiraAutoRefresh = setInterval(() => {
     if (!document.hidden && !state.loading && state.currentTab === "home") loadState();
