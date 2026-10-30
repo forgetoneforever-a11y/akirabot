@@ -345,32 +345,62 @@ app.get("/api/state", async (req, res, next) => {
 });
 
 app.post("/api/click", async (req, res, next) => {
+  const requestedClicks = Number(req.body?.count ?? 1);
+  const clickCount = Number.isInteger(requestedClicks) ? Math.max(1, Math.min(25, requestedClicks)) : 1;
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-
     const result = await client.query(
       "SELECT * FROM players WHERE telegram_id = $1 FOR UPDATE",
       [req.player.telegram_id]
     );
-
     const player = result.rows[0];
-    const rankBoost = rankForEarned(Number(player.total_earned || 0)).multiplier;
-    const skinCount=Number((await client.query("SELECT COUNT(*)::int AS n FROM player_skins WHERE telegram_id=$1",[player.telegram_id])).rows[0]?.n||0);
-    const setBonus=skinCount>=6?1.2:skinCount>=4?1.1:skinCount>=2?1.05:1;
-    const reward = Math.floor(Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0)) * rankBoost * (1 + Number(player.prestige_level || 0) * 0.1) * setBonus);
+    if (!player) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Игрок не найден" });
+    }
+
+    // One skin lookup and one database update per short burst of taps.
+    const skinResult = await client.query(
+      "SELECT COUNT(*)::int AS n FROM player_skins WHERE telegram_id = $1",
+      [player.telegram_id]
+    );
+    const skinCount = Number(skinResult.rows[0]?.n || 0);
+    const setBonus = skinCount >= 6 ? 1.2 : skinCount >= 4 ? 1.1 : skinCount >= 2 ? 1.05 : 1;
+    const prestigeBonus = 1 + Number(player.prestige_level || 0) * 0.1;
+    const basePower = Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0));
+    let totalReward = 0;
+    let earned = Number(player.total_earned || 0);
+
+    // Keep rank multipliers exact even when a burst crosses a rank threshold.
+    for (let i = 0; i < clickCount; i++) {
+      const rankBoost = rankForEarned(earned).multiplier;
+      const reward = Math.max(1, Math.floor(basePower * rankBoost * prestigeBonus * setBonus));
+      totalReward += reward;
+      earned += reward;
+    }
 
     const updated = await client.query(
       `UPDATE players
-       SET balance = balance + $1, total_earned = total_earned + $1, monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned + $1 ELSE $1 END, monthly_period = TO_CHAR(NOW(), 'YYYY-MM')
+       SET balance = balance + $1,
+           total_earned = total_earned + $1,
+           monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned + $1 ELSE $1 END,
+           monthly_period = TO_CHAR(NOW(), 'YYYY-MM')
        WHERE telegram_id = $2 RETURNING *`,
-      [reward, player.telegram_id]
+      [totalReward, player.telegram_id]
     );
 
     const rankResult = await grantRankRewards(client, updated.rows[0]);
     await client.query("COMMIT");
-    res.json({ ok: true, reward, rank_bonus: rankResult.bonus, set_bonus: setBonus, player: publicPlayer(rankResult.player) });
+    res.json({
+      ok: true,
+      clicks: clickCount,
+      reward: totalReward,
+      rank_bonus: rankResult.bonus,
+      set_bonus: setBonus,
+      player: publicPlayer(rankResult.player)
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -378,7 +408,6 @@ app.post("/api/click", async (req, res, next) => {
     client.release();
   }
 });
-
 async function purchaseUpgrade(req, res, next) {
   const type = req.body?.upgrade || req.body?.type;
   if (!UPGRADES[type]) return res.status(400).json({ error: "Неизвестное улучшение" });
