@@ -535,22 +535,18 @@ function setText(selector, value) {
 function updateUpgradePrices() {
   const player = getPlayer();
   const aliases = {
-    click: { price: "#finger-price", key: "click_price", level: "click_upgrade_level" },
-    auto: { price: "#auto-price", key: "auto_price", level: "auto_upgrade_level" },
-    multiplier: { price: "#multiplier-price", key: "multiplier_price", level: "multiplier_upgrade_level" },
+    click: { price: "#finger-price", key: "click_price", level: "click_upgrade_level", fallback: Math.max(0, Number(player.click_power || 1) - 1) },
+    auto: { price: "#auto-price", key: "auto_price", level: "auto_upgrade_level", fallback: Number(player.auto_level || 0) },
+    multiplier: { price: "#multiplier-price", key: "multiplier_price", level: "multiplier_upgrade_level", fallback: Number(player.multiplier_level || 0) }
   };
-
   for (const [type, config] of Object.entries(aliases)) {
     const priceElement = $(config.price);
     const levelElement = $("#" + type + "-upgrade-level");
-    const button = $(`[data-upgrade="${type}"]`);
-    const level = Math.min(20, Math.max(0, Number(player[config.level] ?? (type === "click" ? Number(player.click_power || 1) - 1 : player[type === "auto" ? "auto_level" : "multiplier_level"]) || 0)));
+    const button = $('[data-upgrade="' + type + '"]');
+    const level = Math.min(20, Math.max(0, Number(player[config.level] ?? config.fallback)));
     if (levelElement) levelElement.textContent = String(level);
-
     const price = state.prices[type]?.price ?? state.prices[type] ?? player[config.key];
-    if (priceElement && price !== undefined && price !== null) {
-      priceElement.textContent = formatNumber(price);
-    }
+    if (priceElement && price !== undefined && price !== null) priceElement.textContent = formatNumber(price);
     if (button) {
       const maxed = level >= 20;
       button.disabled = maxed || state.loading;
@@ -559,7 +555,6 @@ function updateUpgradePrices() {
     }
   }
 }
-
 let stateLoadPromise = null;
 async function loadState() {
   if (stateLoadPromise) return stateLoadPromise;
