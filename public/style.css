@@ -2859,3 +2859,9 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
   color:#f2f2f2!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 5px 15px rgba(0,0,0,.25)!important;
 }
+
+
+/* Upgrade level indicators and max-level state */
+.upgrade-level { margin-top:5px; color:var(--muted-text, #9299a8); font-size:12px; }
+.upgrade-level b { color:var(--text-primary, #f3f3f3); font-weight:800; font-variant-numeric:tabular-nums; }
+.buy-button.upgrade-maxed { opacity:.72; cursor:default; border-color:rgba(255,255,255,.22); }
