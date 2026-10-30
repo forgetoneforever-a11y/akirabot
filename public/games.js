@@ -405,6 +405,54 @@
     );
   }
 
+  async function loadChessLobbies() {
+    const list = $("#chess-lobby-list");
+    if (!list) return;
+    list.textContent = "Загружаем активные лобби…";
+    try {
+      const rooms = await window.AKIRAOnlineGames.listLobbies("chess");
+      list.replaceChildren();
+      if (!rooms.length) {
+        const empty = document.createElement("p");
+        empty.className = "section-description";
+        empty.textContent = "Активных лобби пока нет. Создай своё — друг сможет подключиться.";
+        list.appendChild(empty);
+        return;
+      }
+      rooms.forEach((room) => {
+        const item = document.createElement("div");
+        item.className = "chess-lobby-item";
+        const info = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = room.players?.[0]?.name || "Игрок";
+        const meta = document.createElement("p");
+        meta.className = "section-description";
+        meta.textContent = "Ожидает соперника · код " + room.code;
+        info.append(name, meta);
+        const join = document.createElement("button");
+        join.type = "button";
+        join.className = "btn";
+        join.dataset.joinChessLobby = room.code;
+        join.textContent = "Войти";
+        item.append(info, join);
+        list.appendChild(item);
+      });
+    } catch (error) {
+      list.textContent = error.message || "Не удалось загрузить лобби.";
+    }
+  }
+
+  async function joinChessLobby(code) {
+    try {
+      const result = await window.AKIRAOnlineGames.joinLobby(code, "chess");
+      state.selectedGame = "chess";
+      showPanel("chess");
+      setStatus(result.message || "Подключение к партии…", "chess");
+    } catch (error) {
+      toast(error.message || "Не удалось войти в лобби.", "error");
+    }
+  }
+
   function stopCurrentGame(nextGameId) {
     if (
       state.selectedGame === "durak" &&
@@ -506,6 +554,12 @@
         showMenu();
         return;
       }
+
+      const refreshLobbies = event.target.closest("#chess-refresh-lobbies");
+      if (refreshLobbies) { event.preventDefault(); loadChessLobbies(); return; }
+
+      const lobbyJoin = event.target.closest("[data-join-chess-lobby]");
+      if (lobbyJoin) { event.preventDefault(); joinChessLobby(lobbyJoin.dataset.joinChessLobby); return; }
 
       const startButton = event.target.closest("#start-game-button");
 
