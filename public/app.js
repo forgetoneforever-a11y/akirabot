@@ -346,12 +346,12 @@ async function openCase(caseId,button){
   const data=await api("/cases/open",{method:"POST",body:JSON.stringify({case_id:caseId})});
   renderState({player:data.player});
   if(result){result.className="case-result rarity-"+data.skin.rarity;result.textContent=(data.duplicate?"🔁 Дубликат! +"+(data.shards_awarded||0)+" 💠 ":"✨ Новый предмет! ")+data.skin.emoji+" "+data.skin.name+" — "+data.skin.label;}
-  await loadCollection();
+  await loadCollection({force:true});
  }catch(error){if(result){result.className="case-result error";result.textContent=error.message||"Не удалось открыть кейс";}else showToast(error.message);}
  finally{if(button)button.disabled=false;}
 }
 async function equipSkin(skinId){
- try{await api("/skins/equip",{method:"POST",body:JSON.stringify({skin_id:skinId})});await loadCollection();showToast("Скин экипирован!");}
+ try{await api("/skins/equip",{method:"POST",body:JSON.stringify({skin_id:skinId})});await loadCollection({force:true});showToast("Скин экипирован!");}
  catch(error){showToast(error.message||"Не удалось надеть скин");}
 }
 
