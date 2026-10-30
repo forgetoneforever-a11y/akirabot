@@ -1308,6 +1308,7 @@ function init() {
 
   switchTab("home");
   loadState();
+  loadCollection();
 }
 
 if (document.readyState === "loading") {
