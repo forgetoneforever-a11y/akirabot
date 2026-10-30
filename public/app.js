@@ -1198,7 +1198,8 @@ function startSelectedGame(mode) {
 ========================= */
 
 function initEventHandlers() {
-  $("#cookie-button")?.addEventListener("click", e => clickCookie(e));
+  // Вся прямоугольная зона кликабельна; клик по самой печеньке не дублируется.
+  $("#click-area")?.addEventListener("click", (event) => clickCookie(event));
 
   $$("[data-upgrade]").forEach((button) => {
     button.addEventListener("click", () => startUpgradeCountdown(button.dataset.upgrade, button));
