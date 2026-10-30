@@ -2926,3 +2926,111 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
 #tab-shop .upgrade-info .upgrade-level ~ .upgrade-level {
   display: none !important;
 }
+
+
+/* AKIRA performance & motion polish — mobile-first */
+/* Keep motion on the compositor: opacity/transform only. */
+@media (prefers-reduced-motion: no-preference) {
+  .tab-content:not([hidden]) {
+    animation: akira-screen-enter 190ms cubic-bezier(.2,.7,.2,1) both;
+  }
+
+  .nav-button,
+  .btn,
+  .button,
+  .primary-button,
+  .secondary-button,
+  .buy-button,
+  .upgrade-button,
+  .game-choice,
+  [data-open-game] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .nav-button:active,
+  .btn:active,
+  .button:active,
+  .primary-button:active,
+  .secondary-button:active,
+  .buy-button:active,
+  .upgrade-button:active {
+    transform: scale(.965);
+  }
+
+  .card,
+  .panel,
+  .upgrade-item,
+  .friend-row,
+  .leaderboard-row,
+  .monthly-leaderboard-row {
+    backface-visibility: hidden;
+  }
+
+  @keyframes akira-screen-enter {
+    from { opacity: .72; transform: translate3d(0, 5px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+}
+
+/* Blur is expensive on mobile GPUs. Preserve the glass look with a lighter blur. */
+@media (max-width: 600px) {
+  .card,
+  .panel,
+  .balance-card,
+  .upgrades-card,
+  .profile-card,
+  .navbar,
+  .bottom-nav,
+  [data-theme="classic"] .card,
+  [data-theme="classic"] .panel,
+  [data-theme="classic"] .balance-card,
+  [data-theme="classic"] .monthly-leaderboard-card,
+  [data-theme="classic"] .navbar {
+    -webkit-backdrop-filter: blur(9px) saturate(75%) !important;
+    backdrop-filter: blur(9px) saturate(75%) !important;
+  }
+
+  [data-theme="classic"] body::after {
+    opacity: .14;
+  }
+
+  .clicker-card::after,
+  .cookie-stage::after {
+    animation-duration: 48s;
+  }
+
+  .click-popup,
+  .akira-click-spark {
+    will-change: transform, opacity;
+  }
+}
+
+/* Keep hover effects for mouse users; avoid sticky hover states on touchscreens. */
+@media (hover: none) {
+  .nav-button:hover,
+  .upgrade-item:hover,
+  .upgrade-card:hover,
+  .buy-button:hover,
+  .game-choice:hover,
+  [data-open-game]:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-content:not([hidden]),
+  .clicker-card::after,
+  .cookie-stage::after,
+  #cookie-button.akira-click-pop,
+  .akira-click-spark,
+  .click-popup {
+    animation: none !important;
+  }
+
+  .click-popup,
+  .akira-click-spark {
+    display: none !important;
+  }
+}
