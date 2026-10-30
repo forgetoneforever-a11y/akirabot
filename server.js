@@ -307,11 +307,14 @@ app.post("/api/skins/equip", async (req,res,next)=>{
 app.get("/api/friends/search",async(req,res,next)=>{try{const username=String(req.query.username||"").trim().replace(/^@/,"").slice(0,32);if(username.length<3)return res.status(400).json({error:"Введи username от 3 символов"});const r=await pool.query("SELECT telegram_id,username,name,avatar_url FROM players WHERE LOWER(username)=LOWER($1) AND telegram_id<>$2 LIMIT 1",[username,req.player.telegram_id]);res.json({ok:true,player:r.rows[0]||null});}catch(e){next(e);}});
 app.post("/api/friends/add",async(req,res,next)=>{const id=String(req.body?.telegram_id||"");if(!id||id===String(req.player.telegram_id))return res.status(400).json({error:"Нельзя добавить этого игрока"});try{const e=await pool.query("SELECT 1 FROM players WHERE telegram_id=$1",[id]);if(!e.rowCount)return res.status(404).json({error:"Игрок не найден"});await pool.query("INSERT INTO player_friends(telegram_id,friend_telegram_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.player.telegram_id,id]);await pool.query("INSERT INTO player_friends(telegram_id,friend_telegram_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[id,req.player.telegram_id]);res.json({ok:true});}catch(e){next(e);}});
 app.get("/api/friends",async(req,res,next)=>{try{const r=await pool.query("SELECT p.telegram_id,p.username,p.name,p.balance FROM player_friends f JOIN players p ON p.telegram_id::text=f.friend_telegram_id::text WHERE f.telegram_id::text=$1::text ORDER BY LOWER(p.username)",[req.player.telegram_id]);res.json({ok:true,friends:r.rows});}catch(e){next(e);}});
-app.post("/api/friends/gift",async(req,res,next)=>{const id=String(req.body?.telegram_id||""),amount=Math.floor(Number(req.body?.amount||0)),key=String(req.body?.request_id||"");if(!id||id===String(req.player.telegram_id))return res.status(400).json({error:"Выбери друга"});if(!Number.isSafeInteger(amount)||amount<100||amount>100000)return res.status(400).json({error:"Подарок от 100 до 100 000 печенек"});if(!/^[a-zA-Z0-9-]{16,64}$/.test(key))return res.status(400).json({error:"Некорректный ключ подарка"});const cl=await pool.connect();try{await cl.query("BEGIN");const dupe=await cl.query("SELECT id FROM player_gifts WHERE sender_id=$1 AND request_id=$2",[req.player.telegram_id,key]);if(dupe.rowCount){await cl.query("ROLLBACK");return res.status(409).json({error:"Этот подарок уже отправлен"});}const f=await cl.query("SELECT 1 FROM player_friends WHERE telegram_id=$1 AND friend_telegram_id=$2",[req.player.telegram_id,id]);if(!f.rowCount){await cl.query("ROLLBACK");return res.status(403).json({error:"Сначала добавь игрока в друзья"});}const p=await cl.query("SELECT balance FROM players WHERE telegram_id=$1 FOR UPDATE",[req.player.telegram_id]);if(Number(p.rows[0]?.balance||0)<amount){await cl.query("ROLLBACK");return res.status(400).json({error:"Не хватает печенек"});}await cl.query("UPDATE players SET balance=balance-$1 WHERE telegram_id=$2",[amount,req.player.telegram_id]);await cl.query("UPDATE players SET balance=balance+$1,total_earned=total_earned+$1 WHERE telegram_id=$2",[amount,id]);await cl.query("INSERT INTO player_gifts(sender_id,recipient_id,amount,request_id) VALUES($1,$2,$3,$4)",[req.player.telegram_id,id,amount,key]);await cl.query("COMMIT");const updated=await pool.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);res.json({ok:true,amount,player:publicPlayer(updated.rows[0])});}catch(e){await cl.query("ROLLBACK");next(e);}finally{cl.release();}});
+app.post("/api/friends/gift",async(req,res,next)=>{const id=String(req.body?.telegram_id||""),amount=Math.floor(Number(req.body?.amount||0)),key=String(req.body?.request_id||"");if(!id||id===String(req.player.telegram_id))return res.status(400).json({error:"Выбери друга"});if(!Number.isSafeInteger(amount)||amount<100||amount>100000)return res.status(400).json({error:"Подарок от 100 до 100 000 печенек"});if(!/^[a-zA-Z0-9-]{16,64}$/.test(key))return res.status(400).json({error:"Некорректный ключ подарка"});const cl=await pool.connect();try{await cl.query("BEGIN");const dupe=await cl.query("SELECT id FROM player_gifts WHERE sender_id=$1 AND request_id=$2",[req.player.telegram_id,key]);if(dupe.rowCount){await cl.query("ROLLBACK");return res.status(409).json({error:"Этот подарок уже отправлен"});}const f=await cl.query("SELECT 1 FROM player_friends WHERE telegram_id=$1 AND friend_telegram_id=$2",[req.player.telegram_id,id]);if(!f.rowCount){await cl.query("ROLLBACK");return res.status(403).json({error:"Сначала добавь игрока в друзья"});}const p=await cl.query("SELECT balance FROM players WHERE telegram_id=$1 FOR UPDATE",[req.player.telegram_id]);if(Number(p.rows[0]?.balance||0)<amount){await cl.query("ROLLBACK");return res.status(400).json({error:"Не хватает печенек"});}await cl.query("UPDATE players SET balance=balance-$1 WHERE telegram_id=$2",[amount,req.player.telegram_id]);const recipientUpdate=await cl.query("UPDATE players SET balance=balance+$1,total_earned=total_earned+$1 WHERE telegram_id=$2 RETURNING *",[amount,id]);await grantRankRewards(cl,recipientUpdate.rows[0]);await cl.query("INSERT INTO player_gifts(sender_id,recipient_id,amount,request_id) VALUES($1,$2,$3,$4)",[req.player.telegram_id,id,amount,key]);await cl.query("COMMIT");const updated=await pool.query("SELECT * FROM players WHERE telegram_id=$1",[req.player.telegram_id]);res.json({ok:true,amount,player:publicPlayer(updated.rows[0])});}catch(e){await cl.query("ROLLBACK");next(e);}finally{cl.release();}});
 app.get("/api/state", async (req, res, next) => {
+  const client = await pool.connect();
   try {
-    // Accrue automatic-cookie income on the server, never trust client-side totals.
-    const result = await pool.query(
+    await client.query("BEGIN");
+    // Accrue automatic income and rank rewards atomically. This prevents
+    // simultaneous state requests from double-counting offline earnings.
+    const result = await client.query(
       `UPDATE players
        SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
            total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
@@ -320,9 +323,14 @@ app.get("/api/state", async (req, res, next) => {
        RETURNING *`,
       [req.player.telegram_id]
     );
-    res.json({ ok: true, player: publicPlayer(result.rows[0] || req.player) });
+    const rankResult = await grantRankRewards(client, result.rows[0] || req.player);
+    await client.query("COMMIT");
+    res.json({ ok: true, rank_bonus: rankResult.bonus, player: publicPlayer(rankResult.player) });
   } catch (error) {
+    await client.query("ROLLBACK");
     next(error);
+  } finally {
+    client.release();
   }
 });
 
@@ -461,9 +469,16 @@ app.post("/api/daily", async (req, res, next) => {
        WHERE telegram_id = $1 RETURNING *`,
       [player.telegram_id]
     );
+    const rankResult = await grantRankRewards(client, updated.rows[0]);
 
     await client.query("COMMIT");
-    res.json({ ok: true, reward: 500, message: "Получено 500 монет!", player: publicPlayer(updated.rows[0]) });
+    res.json({
+      ok: true,
+      reward: 500,
+      rank_bonus: rankResult.bonus,
+      message: "Получено 500 монет!",
+      player: publicPlayer(rankResult.player)
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -639,8 +654,14 @@ app.post("/api/tasks/claim", async (req, res, next) => {
       "UPDATE players SET balance = balance + $1, total_earned = total_earned + $1 WHERE telegram_id = $2 RETURNING *",
       [task.reward, req.player.telegram_id]
     );
+    const rankResult = await grantRankRewards(client, updated.rows[0]);
     await client.query("COMMIT");
-    res.json({ ok: true, reward: task.reward, player: publicPlayer(updated.rows[0]) });
+    res.json({
+      ok: true,
+      reward: task.reward,
+      rank_bonus: rankResult.bonus,
+      player: publicPlayer(rankResult.player)
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     if (error.code === "23505") return res.status(400).json({ error: "Награда уже получена сегодня" });
