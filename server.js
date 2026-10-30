@@ -346,7 +346,7 @@ app.get("/api/state", async (req, res, next) => {
 
 app.post("/api/click", async (req, res, next) => {
   const requestedClicks = Number(req.body?.count ?? 1);
-  const clickCount = Number.isInteger(requestedClicks) ? Math.max(1, Math.min(25, requestedClicks)) : 1;
+  const clickCount = Number.isInteger(requestedClicks) ? Math.max(1, Math.min(100, requestedClicks)) : 1;
   const client = await pool.connect();
 
   try {
