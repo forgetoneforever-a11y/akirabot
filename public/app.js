@@ -271,6 +271,8 @@ async function loadCollection(){
   collectionEl.replaceChildren();
   const owned=new Set(data.owned.map(item=>item.skin_id));
   state.specialSkinBonus=(owned.has("dragon")?100000:0)+(owned.has("golden")?10000:0);
+  setText("#click-power",formatNumber(getClickPower()));
+  setText("#profile-click",formatNumber(getClickPower()));
   const equipped=data.equipped;
   const currentSkin=data.skins.find(s=>s.id===equipped);
   const cookieButton=$("#cookie-button");
