@@ -654,7 +654,7 @@ async function flushClickQueue() {
     console.error("Ошибка клика:", error);
     showToast(error.message || "Не удалось выполнить клик");
     // Restore unsent taps so a temporary network failure doesn't silently eat them.
-    queuedClickCount = Math.min(250, queuedClickCount + count);
+    queuedClickCount += count;
   } finally {
     clickRequestInFlight = false;
     if (queuedClickCount > 0) setTimeout(scheduleClickFlush, 1200);
@@ -664,7 +664,7 @@ async function flushClickQueue() {
 function clickCookie(event) {
   if (state.loading) return;
   animateCookie();
-  queuedClickCount = Math.min(250, queuedClickCount + 1);
+  queuedClickCount += 1;
   scheduleClickFlush();
 }
 
