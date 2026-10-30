@@ -3313,3 +3313,8 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
   [data-theme="classic"] .friends-search { gap:7px; }
   [data-theme="classic"] .friends-search .buy-button { min-width:76px; }
 }
+
+
+/* Image-based collectible skins */
+.skin-icon .skin-preview-image{width:100%;height:100%;display:block;object-fit:cover;border-radius:inherit;}
+#cookie-button .equipped-skin-image{width:100%;height:100%;display:block;object-fit:contain;border-radius:inherit;pointer-events:none;}
