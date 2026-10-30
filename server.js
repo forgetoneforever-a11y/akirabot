@@ -1,11 +1,14 @@
 "use strict";
 
 const express = require("express");
+const http = require("http");
+const gameServer = require("./game-server");
 const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
 
@@ -787,8 +790,17 @@ async function start() {
     ON players (telegram_id) WHERE telegram_id IS NOT NULL
   `);
 
-  app.listen(PORT, "0.0.0.0", () => {
+  gameServer.attach(httpServer, {
+    verifyPlayer: ({ playerId, initData }) => {
+      const auth = verifyTelegramInitData(initData);
+      if (!auth.valid || String(auth.user.id) !== String(playerId)) return false;
+      return { id: String(auth.user.id) };
+    },
+  });
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`AKIRA server started on port ${PORT}`);
+    console.log("[AKIRA GAMES] Online game server attached");
   });
   startTelegramPollingWithLock();
 }
