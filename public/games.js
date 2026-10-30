@@ -269,6 +269,7 @@
 
     readSettings();
     updateLobbySection();
+    updateSettingsVisibility();
   }
 
   function updateSettingsVisibility() {
