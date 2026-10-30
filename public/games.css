@@ -1233,3 +1233,331 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
 
 /* Keep conditionally hidden game settings hidden in Telegram WebView. */
 #tab-games #game-settings .game-setting-field[hidden] { display: none !important; }
+
+/* AKIRA ARCADE — calm Black Glass visual refresh */
+#tab-games.games-screen {
+  color: #f3f4f7;
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(205,211,230,.075), transparent 38%),
+    radial-gradient(ellipse at 92% 18%, rgba(126,139,170,.075), transparent 36%),
+    linear-gradient(155deg, #090b11 0%, #11141e 52%, #090b12 100%);
+}
+#tab-games.games-screen::before {
+  opacity: .075;
+  background-image: radial-gradient(rgba(235,239,248,.38) .6px, transparent .6px);
+  background-size: 23px 23px;
+}
+#tab-games .games-screen-topbar {
+  max-width: 1080px;
+}
+#tab-games .games-exit-button {
+  min-height: 44px;
+  padding: 10px 15px;
+  color: rgba(239,242,248,.82);
+  background: linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018)),rgba(16,19,29,.68);
+  border-color: rgba(224,229,240,.16);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07),0 8px 22px rgba(0,0,0,.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+#tab-games .games-brand-mark {
+  color: #f4f5f8;
+  background: linear-gradient(145deg,#424957,#171b25);
+  border: 1px solid rgba(230,234,243,.2);
+}
+#tab-games .games-hero {
+  max-width: 1080px;
+  margin: clamp(28px,5vh,52px) auto 24px;
+  padding: clamp(20px,3vw,30px);
+  border: 1px solid rgba(224,229,240,.15);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.012)),
+    rgba(17,20,31,.62);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07),0 18px 42px rgba(0,0,0,.18);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+}
+#tab-games .games-eyebrow,
+#tab-games .games-setup-kicker {
+  color: #c5cbd7;
+}
+#tab-games .games-live-dot {
+  background: #d8dde7;
+  box-shadow: 0 0 12px rgba(216,221,231,.55);
+}
+#tab-games .games-hero h1 {
+  color: #f4f5f8;
+  font-size: clamp(32px,6vw,54px);
+  letter-spacing: -1.7px;
+}
+#tab-games .games-hero h1 span {
+  color: #d5d9e2;
+  background: linear-gradient(100deg,#f1f2f5,#929bab);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+#tab-games .games-hero p {
+  color: rgba(207,213,225,.68);
+}
+#tab-games .games-grid {
+  max-width: 1080px;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+#tab-games .game-card {
+  min-height: 218px;
+  gap: 14px;
+  padding: clamp(16px,2.4vw,24px);
+  border: 1px solid rgba(222,228,240,.15);
+  border-radius: 23px;
+  background: linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.012)),rgba(17,20,31,.78);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.075),0 16px 36px rgba(0,0,0,.22);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+#tab-games .game-card::before {
+  opacity: 1;
+  background:
+    radial-gradient(ellipse at 12% 100%,rgba(202,210,225,.075),transparent 55%),
+    linear-gradient(145deg,rgba(255,255,255,.018),transparent 60%);
+}
+#tab-games .game-card-durak::before,
+#tab-games .game-card-chess::before {
+  background:
+    radial-gradient(ellipse at 12% 100%,rgba(202,210,225,.075),transparent 55%),
+    linear-gradient(145deg,rgba(255,255,255,.018),transparent 60%);
+}
+#tab-games .game-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232,236,245,.32);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09),0 20px 42px rgba(0,0,0,.28);
+}
+#tab-games .game-card.selected,
+#tab-games .game-card[aria-pressed="true"] {
+  border-color: rgba(224,230,241,.48);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10),0 0 0 1px rgba(224,230,241,.08),0 18px 40px rgba(0,0,0,.25);
+}
+#tab-games .game-card-art {
+  flex: 0 0 clamp(86px,10vw,112px);
+  height: 126px;
+  filter: drop-shadow(0 9px 16px rgba(0,0,0,.25));
+}
+#tab-games .game-card-art span {
+  width: 58px;
+  height: 82px;
+  border-color: rgba(255,255,255,.72);
+  border-radius: 9px;
+  font-size: 39px;
+  box-shadow: 0 10px 20px rgba(0,0,0,.30);
+}
+#tab-games .game-card-art span:nth-child(3) {
+  background: linear-gradient(145deg,#d7dbe4,#697386);
+  color: #fff;
+}
+#tab-games .game-card-art.chess-art span {
+  color: #cbd1dd;
+  text-shadow: 0 8px 20px rgba(190,201,222,.20);
+}
+#tab-games .game-card-art.chess-art span:nth-child(2) {
+  color: #f2f3f6;
+}
+#tab-games .game-card-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+}
+#tab-games .game-card-kicker,
+#tab-games .game-card-chess .game-card-kicker {
+  margin-bottom: 8px;
+  color: #aeb6c5;
+  font-size: 9px;
+  letter-spacing: 1.7px;
+}
+#tab-games .game-card-title {
+  color: #f4f5f8;
+  font-size: clamp(22px,2.7vw,30px);
+  letter-spacing: -.7px;
+}
+#tab-games .game-card-description {
+  max-width: 260px;
+  margin-top: 8px;
+  color: rgba(205,212,224,.67);
+  font-size: 12px;
+  line-height: 1.55;
+}
+#tab-games .game-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: none;
+  min-height: 36px;
+  margin-top: 16px;
+  padding: 0 13px;
+  color: #e8ebf1;
+  font-size: 11px;
+  border: 1px solid rgba(224,230,241,.17);
+  border-radius: 11px;
+  background: rgba(255,255,255,.045);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+}
+#tab-games .game-card-action b,
+#tab-games .game-card-chess .game-card-action b {
+  color: #cbd2df;
+  font-size: 15px;
+}
+#tab-games .game-card-number {
+  top: 15px;
+  right: 17px;
+  color: rgba(222,228,239,.30);
+  font-size: 11px;
+}
+#tab-games .games-setup-panel {
+  padding: clamp(17px,3vw,26px);
+  border: 1px solid rgba(224,229,240,.16);
+  border-radius: 22px;
+  background: linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.012)),rgba(15,18,28,.82);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07),0 16px 38px rgba(0,0,0,.22);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+#tab-games .games-setup-heading .section-title {
+  color: #f1f3f7;
+}
+#tab-games .games-setup-heading .section-description {
+  color: rgba(203,210,223,.62);
+}
+#tab-games .games-setup-symbol {
+  color: #dce1eb;
+  background: rgba(215,222,235,.075);
+  border: 1px solid rgba(222,229,240,.15);
+}
+#tab-games .game-mode-buttons button,
+#tab-games .game-mode-button,
+#tab-games [data-game-mode] {
+  color: rgba(224,229,239,.78);
+  border: 1px solid rgba(224,229,240,.15);
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+}
+#tab-games .game-mode-buttons button.selected,
+#tab-games .game-mode-button.selected,
+#tab-games [data-game-mode].selected {
+  color: #f5f6f8;
+  border-color: rgba(226,232,243,.48);
+  background: linear-gradient(145deg,rgba(225,231,242,.13),rgba(255,255,255,.035));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08),0 0 18px rgba(210,220,238,.06);
+}
+#tab-games #game-settings label {
+  color: rgba(205,212,225,.72);
+}
+#tab-games #game-settings select {
+  min-height: 45px;
+  color: #f0f2f6;
+  border: 1px solid rgba(224,230,241,.16);
+  border-radius: 12px;
+  background: rgba(7,10,17,.62);
+}
+#tab-games #start-game-button {
+  color: #11151d;
+  border: 1px solid rgba(255,255,255,.35);
+  background: linear-gradient(135deg,#f0f2f6,#aeb7c6);
+  box-shadow: 0 8px 22px rgba(0,0,0,.22);
+}
+#tab-games .lobby-hub {
+  border-color: rgba(224,230,241,.17);
+  background: linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.012)),rgba(13,17,27,.88);
+}
+#tab-games .lobby-hub::before {
+  color: #cbd2df;
+  border-color: rgba(224,230,241,.17);
+  background: rgba(224,230,241,.055);
+}
+#tab-games .lobby-player-avatar {
+  background: linear-gradient(145deg,#737e91,#303847);
+  box-shadow: 0 5px 16px rgba(0,0,0,.24);
+}
+#tab-games .lobby-join-button {
+  border-color: rgba(224,230,241,.25);
+  background: linear-gradient(145deg,rgba(225,231,242,.15),rgba(255,255,255,.045));
+}
+@media (max-width: 760px) {
+  #tab-games.games-screen {
+    padding-top: max(16px,env(safe-area-inset-top));
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-bottom: max(34px,env(safe-area-inset-bottom));
+  }
+  #tab-games .games-hero {
+    margin: 26px auto 18px;
+    padding: 19px 17px;
+    border-radius: 21px;
+  }
+  #tab-games .games-hero h1 {
+    font-size: clamp(31px,8.5vw,43px);
+    line-height: 1.08;
+    letter-spacing: -1.3px;
+  }
+  #tab-games .games-hero p {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  #tab-games .games-grid {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+  #tab-games .game-card {
+    min-height: 176px;
+    gap: 12px;
+    padding: 15px 16px;
+    border-radius: 20px;
+  }
+  #tab-games .game-card-art {
+    flex-basis: 92px;
+    height: 112px;
+    transform: none;
+    margin: 0;
+  }
+  #tab-games .game-card-art span {
+    width: 49px;
+    height: 72px;
+    font-size: 34px;
+  }
+  #tab-games .game-card-art.chess-art span {
+    width: 53px;
+    height: 76px;
+    font-size: 61px;
+  }
+  #tab-games .game-card-title {
+    font-size: 24px;
+  }
+  #tab-games .game-card-description {
+    margin-top: 6px;
+    font-size: 11px;
+  }
+  #tab-games .game-card-action {
+    min-height: 33px;
+    margin-top: 11px;
+    padding-inline: 10px;
+  }
+  #tab-games .game-card-number {
+    top: 13px;
+    right: 14px;
+  }
+}
+@media (max-width: 390px) {
+  #tab-games .game-card { min-height: 164px; gap: 7px; padding: 13px; }
+  #tab-games .game-card-art { flex-basis: 78px; }
+  #tab-games .game-card-art span { width: 44px; height: 65px; font-size: 30px; }
+  #tab-games .game-card-title { font-size: 22px; }
+  #tab-games .game-card-description { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tab-games .game-card { transition: none !important; }
+}
+
