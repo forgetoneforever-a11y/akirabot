@@ -109,7 +109,7 @@ const SKINS = [
  {id:"choco",name:"STANDOFF 2",emoji:"🎯",image:"/images/standoff-skin.jpg",rarity:"common",label:"Обычный",color:"#b77a54"},
  {id:"mint",name:"Мятная",emoji:"🍃",image:"/images/oi-chort.jpg",rarity:"rare",label:"Редкий",color:"#69e0c1"},
  {id:"galaxy",name:"Галактика",emoji:"🌌",rarity:"epic",label:"Эпический",color:"#b49aff"},
- {id:"golden",name:"Золотая",emoji:"🌟",rarity:"epic",label:"Эпический",color:"#ffd36b"},
+ {id:"golden",name:"ЭТА МАЯ МАШИНА БЛЯ",emoji:"🏍️",image:"/images/a519c921c9af96ef3691c535d4dc7d22.jpg",rarity:"epic",label:"Эпический",color:"#ffd36b"},
  {id:"dragon",name:"Турбоишак2000",emoji:"🐴",image:"/images/turboishak2000.jpg",rarity:"legendary",label:"Легендарный",color:"#ff79c8"}
 ];
 const CASES = {
