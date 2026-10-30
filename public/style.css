@@ -2628,8 +2628,23 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
 [data-theme="classic"] small { color:#a5a5a5; }
 [data-theme="classic"] .level-progress,
 [data-theme="classic"] .progress-track { background:rgba(255,255,255,.12)!important; }
-[data-theme="classic"] .level-progress > *,
-[data-theme="classic"] .progress-fill { background:linear-gradient(90deg,#777,#f2f2f2)!important; box-shadow:0 0 14px rgba(255,255,255,.18); }
+[data-theme="classic"] .level-progress-fill,
+[data-theme="classic"] .progress-fill { background:linear-gradient(90deg,#8d8d8d 0%,#f4f4f4 100%)!important; box-shadow:0 0 10px rgba(255,255,255,.16); }
+[data-theme="classic"] .level-progress-track { background:rgba(255,255,255,.13)!important; }
+[data-theme="classic"] #level-progress-label {
+  display:block!important;
+  padding:0!important;
+  margin:0!important;
+  color:rgba(235,235,235,.62)!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  font-size:10px!important;
+  line-height:1.35!important;
+  letter-spacing:.1px!important;
+  text-shadow:none!important;
+  opacity:1!important;
+}
 
 /* Buttons, controls and navigation */
 [data-theme="classic"] .navbar,
@@ -2802,4 +2817,45 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
 }
 [data-theme="classic"] #app .navbar .nav-button.active > span:first-child {
   filter:grayscale(1);
+}
+
+
+/* Header level indicator: crisp, readable and free from accidental gradient on its caption */
+[data-theme="classic"] #app > .header .level-progress {
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  padding:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+[data-theme="classic"] #app > .header .level-progress-track {
+  height:6px!important;
+  width:100%!important;
+  overflow:hidden!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.07))!important;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.04)!important;
+}
+[data-theme="classic"] #app > .header .level-progress-fill {
+  height:100%!important;
+  border-radius:999px!important;
+  background:linear-gradient(90deg,#858585 0%,#d5d5d5 58%,#fff 100%)!important;
+  box-shadow:0 0 8px rgba(255,255,255,.22)!important;
+}
+[data-theme="classic"] #app > .header #level-progress-label {
+  min-height:13px!important;
+  color:#929292!important;
+  background:none!important;
+  -webkit-text-fill-color:initial!important;
+  font-weight:500!important;
+}
+[data-theme="classic"] #app > .header .level-badge {
+  background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.035))!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  color:#f2f2f2!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 5px 15px rgba(0,0,0,.25)!important;
 }
