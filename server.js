@@ -77,7 +77,7 @@ async function startTelegramPollingWithLock() {
         client.on("error", error => {
           console.error("[AKIRA BOT] Polling lock connection error:", error.message);
         });
-        startTelegramPollingWithLock();
+        telegramPollingLoop();
         return;
       }
       client.release();
@@ -790,7 +790,7 @@ async function start() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`AKIRA server started on port ${PORT}`);
   });
-  telegramPollingLoop();
+  startTelegramPollingWithLock();
 }
 
 start().catch(error => {
