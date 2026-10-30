@@ -465,7 +465,7 @@
       return "Ничья: недостаточно материала для мата.";
     }
 
-    if (state.game.isCheck()) {
+    if (isInCheck()) {
       return `Шах! Ход ${colorName(state.game.turn())}.`;
     }
 
@@ -491,7 +491,7 @@
 
     let winner = null;
 
-    if (state.game.isCheckmate()) {
+    if (isCheckmate()) {
       winner = oppositeColor(state.game.turn()) === state.playerColor
         ? "player"
         : "bot";
@@ -732,7 +732,7 @@
 
       let score = -evaluateMaterial();
 
-      if (state.game.isCheckmate()) {
+      if (isCheckmate()) {
         score += 100000;
       }
 
