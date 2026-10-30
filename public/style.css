@@ -2921,3 +2921,8 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
     font-size: 12px;
   }
 }
+
+/* Prevent duplicated level rows in shop cards, including stale Mini App fragments. */
+#tab-shop .upgrade-info .upgrade-level ~ .upgrade-level {
+  display: none !important;
+}
