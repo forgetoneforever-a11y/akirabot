@@ -533,23 +533,29 @@ function setText(selector, value) {
 }
 
 function updateUpgradePrices() {
+  const player = getPlayer();
   const aliases = {
-    click: ["#finger-price", "click_price"],
-    auto: ["#auto-price", "auto_price"],
-    multiplier: ["#multiplier-price", "multiplier_price"],
+    click: { price: "#finger-price", key: "click_price", level: "click_upgrade_level" },
+    auto: { price: "#auto-price", key: "auto_price", level: "auto_upgrade_level" },
+    multiplier: { price: "#multiplier-price", key: "multiplier_price", level: "multiplier_upgrade_level" },
   };
 
-  for (const [type, [selector, playerKey]] of Object.entries(aliases)) {
-    const element = $(selector);
-    if (!element) continue;
+  for (const [type, config] of Object.entries(aliases)) {
+    const priceElement = $(config.price);
+    const levelElement = $("#" + type + "-upgrade-level");
+    const button = $(`[data-upgrade="${type}"]`);
+    const level = Math.min(20, Math.max(0, Number(player[config.level] ?? (type === "click" ? Number(player.click_power || 1) - 1 : player[type === "auto" ? "auto_level" : "multiplier_level"]) || 0)));
+    if (levelElement) levelElement.textContent = String(level);
 
-    const price =
-      state.prices[type]?.price ??
-      state.prices[type] ??
-      getPlayer()[playerKey];
-
-    if (price !== undefined && price !== null) {
-      element.textContent = formatNumber(price);
+    const price = state.prices[type]?.price ?? state.prices[type] ?? player[config.key];
+    if (priceElement && price !== undefined && price !== null) {
+      priceElement.textContent = formatNumber(price);
+    }
+    if (button) {
+      const maxed = level >= 20;
+      button.disabled = maxed || state.loading;
+      button.textContent = maxed ? "Максимум" : "Купить";
+      button.classList.toggle("upgrade-maxed", maxed);
     }
   }
 }
