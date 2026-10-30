@@ -52,8 +52,43 @@ async function telegramPollingLoop() {
       }
     } catch (error) {
       console.error("[AKIRA BOT] Polling error:", error.message);
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      // A competing process may briefly own Telegram polling during a deploy.
+      // Back off rather than hammering getUpdates every four seconds.
+      const delay = /Conflict: terminated by other getUpdates request/i.test(error.message)
+        ? 15000
+        : 4000;
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
+  }
+}
+
+async function startTelegramPollingWithLock() {
+  if (!BOT_API) return;
+  // PostgreSQL advisory lock makes sure only one AKIRA instance polls Telegram,
+  // even when Render briefly overlaps old and new deployments.
+  while (true) {
+    let client;
+    try {
+      client = await pool.connect();
+      const result = await client.query("SELECT pg_try_advisory_lock(192837465, 1) AS locked");
+      if (result.rows[0] && result.rows[0].locked) {
+        console.log("[AKIRA BOT] Acquired Telegram polling lock");
+        // Keep this DB session alive for as long as this process owns polling.
+        client.on("error", error => {
+          console.error("[AKIRA BOT] Polling lock connection error:", error.message);
+        });
+        startTelegramPollingWithLock();
+        return;
+      }
+      client.release();
+      console.log("[AKIRA BOT] Another AKIRA instance owns Telegram polling; retrying in 10 seconds");
+    } catch (error) {
+      if (client) {
+        try { client.release(true); } catch (_) {}
+      }
+      console.error("[AKIRA BOT] Could not acquire polling lock:", error.message);
+    }
+    await new Promise(resolve => setTimeout(resolve, 10000));
   }
 }
 
