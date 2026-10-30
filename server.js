@@ -110,7 +110,7 @@ const SKINS = [
  {id:"mint",name:"Мятная",emoji:"🍃",image:"/images/oi-chort.jpg",rarity:"rare",label:"Редкий",color:"#69e0c1"},
  {id:"galaxy",name:"Галактика",emoji:"🌌",rarity:"epic",label:"Эпический",color:"#b49aff"},
  {id:"golden",name:"Золотая",emoji:"🌟",rarity:"epic",label:"Эпический",color:"#ffd36b"},
- {id:"dragon",name:"Драконья",emoji:"🐉",rarity:"legendary",label:"Легендарный",color:"#ff79c8"}
+ {id:"dragon",name:"Турбоишак2000",emoji:"🐴",image:"/images/turboishak2000.jpg",rarity:"legendary",label:"Легендарный",color:"#ff79c8"}
 ];
 const CASES = {
  basic:{id:"basic",name:"Печеньковый кейс",emoji:"📦",price:2500,description:"Первый шаг к коллекции"},
