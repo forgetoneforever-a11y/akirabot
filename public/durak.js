@@ -1032,9 +1032,9 @@
     const makeCard = (card) => {
       if (!card) return null;
       const suit = suitMap[card.suit] || card.suit;
-      const value = Number(card.rank) || rankMap[card.rank] || 6;
+      const value = rankMap[card.rank] || Number(card.rank) || 6;
       const label = value === 11 ? "В" : value === 12 ? "Д" : value === 13 ? "К" : value === 14 ? "Т" : String(value);
-      return { id: String(card.id), suit, symbol: card.suit, red: suit === "hearts" || suit === "diamonds", value, label, rank: card.rank };
+      return { id: String(card.id), suit, symbol: card.suit, red: suit === "hearts" || suit === "diamonds", value, label, rank: label };
     };
     game.trumpSuit = suitMap[data.trump] || data.trump;
     game.trumpCard = null;
