@@ -304,7 +304,152 @@ async function equipSkin(skinId){
  catch(error){showToast(error.message||"Не удалось надеть скин");}
 }
 
-async function loadFriends(){const el=$("#friends-list");if(!el)return;try{const d=await api("/friends");el.replaceChildren();if(!d.friends.length){el.textContent="Пока нет друзей. Найди игрока выше.";return;}d.friends.forEach(f=>{const row=document.createElement("div");row.className="friend-row";const info=document.createElement("div");info.className="friend-info";const name=document.createElement("strong");name.textContent=f.name||f.username;const detail=document.createElement("span");detail.textContent="@"+f.username+" · "+formatNumber(f.balance)+" 🍪";info.append(name,detail);const b=document.createElement("button");b.className="buy-button";b.textContent="Подарить";b.type="button";b.addEventListener("click",async()=>{const raw=prompt("Сколько печенек подарить? (100–100 000)","500");if(raw===null)return;const amount=Number(raw),request_id=crypto.randomUUID?crypto.randomUUID():"gift-"+Date.now()+"-"+Math.random().toString(36).slice(2);b.disabled=true;try{const r=await api("/friends/gift",{method:"POST",body:{telegram_id:f.telegram_id,amount,request_id}});renderState({player:r.player});showToast("Подарено "+formatNumber(amount)+" 🍪");loadFriends();}catch(e){showToast(e.message||"Ошибка подарка");}finally{b.disabled=false;}});row.append(info,b);el.append(row);});}catch(e){el.textContent=e.message||"Не удалось загрузить друзей";}} async function searchFriend(){const input=$("#friend-username"),out=$("#friend-search-result");if(!input||!out)return;out.textContent="Ищем…";try{const d=await api("/friends/search?username="+encodeURIComponent(input.value.trim().replace(/^@/,"")));out.replaceChildren();if(!d.player){out.textContent="Игрок не найден. Он должен открыть Mini App хотя бы раз.";return;}const row=document.createElement("div");row.className="friend-row";const label=document.createElement("span");label.textContent=(d.player.name||d.player.username)+" @"+d.player.username;const b=document.createElement("button");b.className="buy-button";b.textContent="Добавить";b.addEventListener("click",async()=>{try{await api("/friends/add",{method:"POST",body:{telegram_id:d.player.telegram_id}});out.textContent="Добавлен в друзья!";loadFriends();}catch(e){showToast(e.message);}});row.append(label,b);out.append(row);}catch(e){out.textContent=e.message||"Ошибка поиска";}}
+async function loadFriends() {
+  const el = $("#friends-list");
+  if (!el) return;
+  el.textContent = "Загрузка друзей…";
+  try {
+    const data = await api("/friends");
+    const friends = Array.isArray(data.friends) ? data.friends : [];
+    el.replaceChildren();
+    if (!friends.length) {
+      const empty = document.createElement("div");
+      empty.className = "friends-empty";
+      empty.textContent = "Пока нет друзей. Найди игрока по Telegram username или пригласи его в AKIRA.";
+      el.append(empty);
+      return;
+    }
+    friends.forEach((friend) => {
+      const row = document.createElement("div");
+      row.className = "friend-row";
+      const avatar = document.createElement("img");
+      avatar.className = "friend-avatar";
+      avatar.src = friend.avatar_url || "/avatar-default.svg";
+      avatar.alt = "";
+      avatar.loading = "lazy";
+      avatar.onerror = () => { avatar.onerror = null; avatar.src = "/avatar-default.svg"; };
+      const info = document.createElement("div");
+      info.className = "friend-info";
+      const name = document.createElement("strong");
+      name.textContent = friend.name || friend.username || "Игрок";
+      const detail = document.createElement("span");
+      detail.textContent = (friend.username ? "@" + friend.username + " · " : "") + formatNumber(friend.balance) + " 🍪";
+      info.append(name, detail);
+      const gift = document.createElement("button");
+      gift.className = "buy-button";
+      gift.type = "button";
+      gift.textContent = "🎁 Подарить";
+      gift.addEventListener("click", async () => {
+        const raw = prompt("Сколько печенек подарить? От 100 до 100 000.", "500");
+        if (raw === null) return;
+        const amount = Number(raw.trim());
+        if (!Number.isSafeInteger(amount) || amount < 100 || amount > 100000) {
+          showToast("Укажи целое число от 100 до 100 000");
+          return;
+        }
+        if (amount > getBalance()) {
+          showToast("У тебя недостаточно печенек");
+          return;
+        }
+        gift.disabled = true;
+        try {
+          const requestId = (window.crypto?.randomUUID?.() || ("gift-" + Date.now() + "-" + Math.random().toString(36).slice(2))).slice(0,64);
+          const result = await api("/friends/gift", { method: "POST", body: { telegram_id: friend.telegram_id, amount, request_id: requestId } });
+          if (result.player) renderState({ player: result.player });
+          showToast("Подарок отправлен: " + formatNumber(amount) + " 🍪");
+          await loadFriends();
+        } catch (error) {
+          showToast(error.message || "Не удалось отправить подарок");
+        } finally {
+          gift.disabled = false;
+        }
+      });
+      row.append(avatar, info, gift);
+      el.append(row);
+    });
+  } catch (error) {
+    el.textContent = error.message || "Не удалось загрузить друзей";
+  }
+}
+
+async function searchFriend() {
+  const input = $("#friend-username");
+  const out = $("#friend-search-result");
+  if (!input || !out) return;
+  const username = input.value.trim().replace(/^@/, "");
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) {
+    out.textContent = "Введи Telegram username от 3 символов, без пробелов.";
+    return;
+  }
+  const searchButton = $("#friend-search-button");
+  if (searchButton) searchButton.disabled = true;
+  out.textContent = "Ищем игрока…";
+  try {
+    const data = await api("/friends/search?username=" + encodeURIComponent(username));
+    out.replaceChildren();
+    if (!data.player) {
+      out.textContent = "Игрок не найден. Он должен хотя бы раз открыть AKIRA.";
+      return;
+    }
+    const player = data.player;
+    const row = document.createElement("div");
+    row.className = "friend-row friend-search-card";
+    const avatar = document.createElement("img");
+    avatar.className = "friend-avatar";
+    avatar.src = player.avatar_url || "/avatar-default.svg";
+    avatar.alt = "";
+    avatar.onerror = () => { avatar.onerror = null; avatar.src = "/avatar-default.svg"; };
+    const info = document.createElement("div");
+    info.className = "friend-info";
+    const name = document.createElement("strong");
+    name.textContent = player.name || player.username || "Игрок";
+    const detail = document.createElement("span");
+    detail.textContent = player.username ? "@" + player.username : "Игрок AKIRA";
+    info.append(name, detail);
+    const add = document.createElement("button");
+    add.className = "buy-button";
+    add.type = "button";
+    add.textContent = player.is_friend ? "✓ Уже друг" : "＋ Добавить";
+    add.disabled = Boolean(player.is_friend);
+    add.addEventListener("click", async () => {
+      add.disabled = true;
+      try {
+        await api("/friends/add", { method: "POST", body: { telegram_id: player.telegram_id } });
+        add.textContent = "✓ Добавлен";
+        showToast("Игрок добавлен в друзья");
+        await loadFriends();
+      } catch (error) {
+        add.disabled = false;
+        showToast(error.message || "Не удалось добавить друга");
+      }
+    });
+    row.append(avatar, info, add);
+    out.append(row);
+  } catch (error) {
+    out.textContent = error.message || "Ошибка поиска";
+  } finally {
+    if (searchButton) searchButton.disabled = false;
+  }
+}
+
+async function inviteFriend() {
+  const telegram = window.Telegram?.WebApp;
+  const url = window.location.href.split("#")[0];
+  const text = "Заходи в AKIRA! Будем играть и соревноваться 🍪";
+  const shareUrl = "https://t.me/share/url?url=" + encodeURIComponent(url) + "&text=" + encodeURIComponent(text);
+  try {
+    if (telegram?.openTelegramLink) telegram.openTelegramLink(shareUrl);
+    else if (navigator.share) await navigator.share({ title: "AKIRA", text, url });
+    else if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      showToast("Ссылка на AKIRA скопирована");
+    } else {
+      window.prompt("Скопируй ссылку на AKIRA:", url);
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") showToast("Не удалось открыть отправку ссылки");
+  }
+}
 async function performPrestige(){
  const player=getPlayer();const required=Math.floor(1000000*Math.pow(2,Number(player.prestige_level||0)));
  if(Number(player.balance||0)<required){showToast("Пока недостаточно печенек");return;}
@@ -957,6 +1102,7 @@ function initEventHandlers() {
   $("#prestige-button")?.addEventListener("click", performPrestige);
   $("#daily-shop-button")?.addEventListener("click", () => switchTab("profile"));
   $("#friend-search-button")?.addEventListener("click", searchFriend);
+  $("#invite-friend-button")?.addEventListener("click", inviteFriend);
   $("#friend-username")?.addEventListener("keydown",e=>{if(e.key==="Enter")searchFriend();});
   $("#friends-refresh")?.addEventListener("click",loadFriends);
 }
@@ -984,7 +1130,6 @@ function init() {
 
   initThemes();
   initEventHandlers();
-  loadFriends();
   loadFriends();
   loadCollection();
   initSwipeNavigation();
