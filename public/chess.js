@@ -481,6 +481,17 @@
         : "q";
     }
 
+    if (state.mode === "online") {
+      state.thinking = true;
+      setStatus("Отправляем ход сопернику…");
+      renderBoard();
+      window.AKIRAOnlineGames?.action("move", { move: moveOptions })
+        .catch((error) => setStatus(error.message || "Не удалось отправить ход."))
+        .finally(() => { state.thinking = false; });
+      clearSelection();
+      return;
+    }
+
     let move;
 
     try {
@@ -739,19 +750,11 @@
     state.moveCount = 0;
 
     if (state.mode === "online") {
-      state.active = false;
-      state.finished = true;
-
-      setStatus(
-        "Онлайн-шахматы пока не подключены к серверу. Выбери игру против бота."
-      );
-
+      state.active = true;
+      state.finished = false;
+      setStatus("Подключено. Ожидаем состояние матча…");
       renderBoard();
-
-      return {
-        success: false,
-        message: "Онлайн-шахматы не подключены к серверу.",
-      };
+      return { success: true, message: "Подключение к онлайн-шахматам." };
     }
 
     state.active = true;
@@ -863,8 +866,30 @@
   window.undoChessMove = undoChessMove;
   window.destroyChessGame = destroyChessGame;
 
+  function applyOnlineChessState(snapshot) {
+    if (state.mode !== "online" || !snapshot?.chess || !state.game) return;
+    try {
+      state.game.load(snapshot.chess.fen);
+    } catch (error) {
+      console.error("[AKIRA Chess] Invalid server FEN", error);
+      return;
+    }
+    state.playerColor = snapshot.chess.color || state.playerColor;
+    state.history = state.game.history();
+    state.moveCount = state.history.length;
+    state.lastMove = snapshot.chess.lastMove || null;
+    state.selectedSquare = null;
+    state.legalTargets = [];
+    state.thinking = false;
+    state.finished = snapshot.status === "finished";
+    state.active = snapshot.status === "playing";
+    setStatus(snapshot.message || (state.active ? "Твой ход." : "Партия завершена."));
+    renderBoard();
+  }
+
   window.AKIRAChess = {
     start: startChessGame,
+    applyOnlineState: applyOnlineChessState,
     undo: undoChessMove,
     destroy: destroyChessGame,
     render: renderBoard,
