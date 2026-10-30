@@ -532,7 +532,18 @@ function setText(selector, value) {
   if (element) element.textContent = String(value ?? "");
 }
 
+function normalizeUpgradeCards() {
+  document.querySelectorAll("#tab-shop .upgrade-item").forEach((card) => {
+    const info = card.querySelector(".upgrade-info");
+    if (!info) return;
+    const levels = info.querySelectorAll(".upgrade-level");
+    // Keep a single level label even if an old cached fragment was duplicated.
+    levels.forEach((item, index) => { if (index > 0) item.remove(); });
+  });
+}
+
 function updateUpgradePrices() {
+  normalizeUpgradeCards();
   const player = getPlayer();
   const aliases = {
     click: { price: "#finger-price", key: "click_price", level: "click_upgrade_level", fallback: Math.max(0, Number(player.click_power || 1) - 1) },
