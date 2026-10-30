@@ -272,14 +272,14 @@ async function loadCollection(){
   const equipped=data.equipped;
   const currentSkin=data.skins.find(s=>s.id===equipped);
   const cookieButton=$("#cookie-button");
-  if(cookieButton&&currentSkin)cookieButton.textContent=currentSkin.emoji;
+  if(cookieButton&&currentSkin){cookieButton.replaceChildren();if(currentSkin.image){const img=document.createElement("img");img.src=currentSkin.image;img.alt=currentSkin.name;img.className="equipped-skin-image";cookieButton.append(img);}else cookieButton.textContent=currentSkin.emoji;}
   const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+data.skins.length;
   const shards=$("#shards-balance");if(shards)shards.textContent=formatNumber(data.shards||0);
   const setBonus=$("#skin-set-bonus");if(setBonus)setBonus.textContent="Бонус коллекции: ×"+Number(data.set_bonus||1).toFixed(2);
   data.skins.forEach(skin=>{
    const item=data.owned.find(row=>row.skin_id===skin.id);
    const card=document.createElement("div");card.className="skin-card rarity-"+skin.rarity+(item?" owned":" locked")+(skin.id===equipped?" equipped":"");
-   const icon=document.createElement("div");icon.className="skin-icon";icon.textContent=item?skin.emoji:"❔";
+   const icon=document.createElement("div");icon.className="skin-icon";if(item&&skin.image){const img=document.createElement("img");img.src=skin.image;img.alt=skin.name;img.className="skin-preview-image";icon.append(img);}else icon.textContent=item?skin.emoji:"❔";
    const name=document.createElement("strong");name.textContent=item?skin.name:"Не найден";
    const rarity=document.createElement("span");rarity.textContent=skin.label;
    const button=document.createElement("button");button.type="button";button.className="skin-equip";
