@@ -554,14 +554,21 @@ function updateUpgradePrices() {
   }
 }
 
+let stateLoadPromise = null;
 async function loadState() {
-  try {
-    const data = await api("/state");
-    renderState(data);
-  } catch (error) {
-    console.error("Ошибка загрузки состояния:", error);
-    showToast(error.message || "Не удалось загрузить игру");
-  }
+  if (stateLoadPromise) return stateLoadPromise;
+  stateLoadPromise = (async () => {
+    try {
+      const data = await api("/state");
+      renderState(data);
+    } catch (error) {
+      console.error("Ошибка загрузки состояния:", error);
+      showToast(error.message || "Не удалось загрузить игру");
+    } finally {
+      stateLoadPromise = null;
+    }
+  })();
+  return stateLoadPromise;
 }
 
 /* =========================
@@ -779,7 +786,8 @@ function switchTab(tabName, direction = 0) {
   });
 
   if (tabName === "top") { loadLeaderboard(); loadMonthlyLeaderboard(); }
-  if (tabName === "profile") loadState();
+  if (tabName === "profile") { loadState(); loadFriends(); }
+  if (tabName === "themes") loadCollection();
 }
 
 function initSwipeNavigation() {
@@ -1183,10 +1191,13 @@ function init() {
   if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
   updateMonthlyCountdown();
   if (!window.akiraMonthlyCountdown) window.akiraMonthlyCountdown = setInterval(updateMonthlyCountdown, 1000);
-  // Refresh server-authoritative balance so auto-clicker earnings appear while the app is open.
+  // Refresh authoritative balance less aggressively; never overlap requests.
   if (!window.akiraAutoRefresh) window.akiraAutoRefresh = setInterval(() => {
     if (!document.hidden && !state.loading && state.currentTab === "home") loadState();
-  }, 5000);
+  }, 15000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.currentTab === "home") loadState();
+  });
   const telegram = window.Telegram?.WebApp;
 
   try {
@@ -1200,8 +1211,7 @@ function init() {
 
   initThemes();
   initEventHandlers();
-  loadFriends();
-  loadCollection();
+  // Load secondary data only when the corresponding tab is opened.
   initSwipeNavigation();
 
   switchTab("home");
