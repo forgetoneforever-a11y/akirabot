@@ -1204,6 +1204,30 @@ function initEventHandlers() {
     button.addEventListener("click", () => startUpgradeCountdown(button.dataset.upgrade, button));
   });
 
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest(".subtab-button[data-subtab-group][data-subtab]");
+    if (!button) return;
+    event.preventDefault();
+    const group = button.dataset.subtabGroup;
+    const target = button.dataset.subtab;
+    const section = document.querySelector(`#tab-${group}`);
+    if (!section) return;
+    section.querySelectorAll(".subtab-button[data-subtab-group]").forEach((item) => {
+      const active = item === button;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    section.querySelectorAll("[data-subtab-panel]").forEach((panel) => {
+      const active = panel.dataset.subtabPanel === `${group}:${target}`;
+      panel.hidden = !active;
+      panel.classList.toggle("active", active);
+    });
+    try { sessionStorage.setItem(`akira-subtab-${group}`, target); } catch (_) {}
+    if (group === "shop" && target === "cases") loadCollection();
+    if (group === "shop" && target === "friends") loadFriends();
+    if (group === "profile" && target === "tasks") loadTasks();
+  });
+
   // Делегирование кликов: навигация продолжит работать даже после обновления DOM.
   document.addEventListener("click", (event) => {
     const button = event.target.closest(".nav-button[data-tab]");
@@ -1225,7 +1249,18 @@ function initEventHandlers() {
    ЗАПУСК
 ========================= */
 
+function restoreSubtabs() {
+  ["home", "shop", "profile"].forEach((group) => {
+    let saved = null;
+    try { saved = sessionStorage.getItem(`akira-subtab-${group}`); } catch (_) {}
+    if (!saved) return;
+    const button = document.querySelector(`.subtab-button[data-subtab-group="${group}"][data-subtab="${saved}"]`);
+    if (button) button.click();
+  });
+}
+
 function init() {
+  restoreSubtabs();
   if (!window.akiraDailyTimer) window.akiraDailyTimer = setInterval(updateDailyRewardButton, 1000);
   updateMonthlyCountdown();
   if (!window.akiraMonthlyCountdown) window.akiraMonthlyCountdown = setInterval(updateMonthlyCountdown, 1000);
