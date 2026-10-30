@@ -1128,3 +1128,74 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
 .games-brand-avatar { display:block; width:29px; height:29px; flex:0 0 29px; object-fit:cover; border-radius:9px; border:1px solid rgba(255,255,255,.25); box-shadow:0 0 14px rgba(170,125,255,.18); }
 .games-brand strong { color:#fff; font-weight:900; letter-spacing:.04em; }
 .games-brand > span:last-child { margin-left:2px; }
+
+
+/* AKIRA online lobby hub — shared by chess and Durak */
+#tab-games .lobby-hub {
+  position: relative;
+  margin: 18px 0 20px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 91, 151, .34);
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(255, 70, 139, .16), transparent 48%),
+    radial-gradient(ellipse at 100% 100%, rgba(145, 100, 255, .13), transparent 45%),
+    linear-gradient(145deg, rgba(35, 25, 48, .96), rgba(17, 20, 37, .96));
+  box-shadow: 0 16px 38px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08);
+}
+#tab-games .lobby-hub::before {
+  content: "ONLINE • LIVE ROOMS";
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255,100,157,.25);
+  border-radius: 999px;
+  color: #ff8ab6;
+  background: rgba(255,83,145,.09);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+#tab-games .lobby-hub label,
+#tab-games #lobby-section-title { display:block; color:#fff; font-size:17px; font-weight:850; }
+#tab-games #lobby-section-description { display:block; margin-top:7px; color:rgba(224,222,239,.68); font-size:12px; line-height:1.55; }
+#tab-games .lobby-list { display:grid; gap:10px; margin:14px 0; }
+#tab-games .chess-lobby-item {
+  display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:11px;
+  padding:12px; border:1px solid rgba(255,255,255,.10); border-radius:16px;
+  background:linear-gradient(110deg,rgba(255,255,255,.075),rgba(255,255,255,.025));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
+}
+#tab-games .lobby-player-avatar {
+  width:42px; height:42px; display:grid; place-items:center; border-radius:14px;
+  color:#fff; font-size:17px; font-weight:900;
+  background:linear-gradient(145deg,#ff5d9a,#8b5cf6);
+  box-shadow:0 5px 16px rgba(220,75,145,.25);
+}
+#tab-games .lobby-player-info { display:grid; min-width:0; gap:3px; }
+#tab-games .lobby-player-info strong { overflow:hidden; color:#fff; font-size:13px; text-overflow:ellipsis; white-space:nowrap; }
+#tab-games .lobby-player-info span { color:#91ddb6; font-size:10px; }
+#tab-games .lobby-player-info small { color:rgba(220,218,236,.5); font-size:9px; letter-spacing:.06em; }
+#tab-games .lobby-join-button {
+  min-height:38px; padding:0 14px; border:1px solid rgba(255,93,151,.55); border-radius:12px;
+  color:#fff; background:linear-gradient(135deg,rgba(255,78,142,.28),rgba(145,75,200,.22));
+  font-size:12px; font-weight:850; cursor:pointer;
+}
+#tab-games .lobby-join-button:active { transform:scale(.96); }
+#tab-games .lobby-empty {
+  display:grid; justify-items:center; gap:7px; padding:19px 12px; text-align:center;
+  border:1px dashed rgba(255,255,255,.16); border-radius:15px;
+  color:rgba(224,222,239,.62); font-size:11px; line-height:1.5;
+}
+#tab-games .lobby-empty strong { color:#fff; font-size:13px; }
+#tab-games .lobby-empty-icon { color:#ff83ad; font-size:23px; }
+#tab-games .lobby-error { color:#ff9bac; }
+#tab-games #chess-refresh-lobbies { min-height:42px; border-radius:13px; }
+@media(max-width:520px) {
+  #tab-games .lobby-hub { padding:14px; border-radius:19px; }
+  #tab-games .chess-lobby-item { grid-template-columns:36px minmax(0,1fr) auto; gap:9px; padding:10px; }
+  #tab-games .lobby-player-avatar { width:36px; height:36px; border-radius:12px; }
+  #tab-games .lobby-join-button { padding:0 11px; }
+}
