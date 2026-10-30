@@ -223,6 +223,8 @@
       chessOptions.hidden = gameId !== "chess";
     }
 
+    updateLobbySection();
+
     const startButton = $("#start-game-button");
     if (startButton) {
       startButton.textContent =
@@ -265,12 +267,25 @@
     }
 
     readSettings();
-    const lobbySection = $("#chess-lobbies");
-    if (lobbySection) {
-      const showChessLobbies = state.selectedGame === "chess" && mode === "online";
-      lobbySection.hidden = !showChessLobbies;
-      if (showChessLobbies) loadChessLobbies();
-    }
+    updateLobbySection();
+  }
+
+  function updateLobbySection() {
+    const section = $("#chess-lobbies");
+    const title = $("#lobby-section-title");
+    const description = $("#lobby-section-description");
+    const refresh = $("#chess-refresh-lobbies");
+    const visible = state.mode === "online";
+    if (!section) return;
+    section.hidden = !visible;
+    if (title) title.textContent = state.selectedGame === "chess"
+      ? "♟ Активные шахматные лобби"
+      : "🃏 Активные лобби «Дурака»";
+    if (description) description.textContent = state.selectedGame === "chess"
+      ? "Выбери комнату и присоединись к партии или создай свою."
+      : "Найди открытую партию в «Дурака» или создай комнату для друга.";
+    if (refresh) refresh.textContent = "↻ Обновить список";
+    if (visible) loadGameLobbies();
   }
 
   function startGame() {
@@ -411,49 +426,65 @@
     );
   }
 
-  async function loadChessLobbies() {
+  async function loadGameLobbies() {
     const list = $("#chess-lobby-list");
     if (!list) return;
-    list.textContent = "Загружаем активные лобби…";
+    const gameId = state.selectedGame;
+    list.replaceChildren();
+    const loading = document.createElement("div");
+    loading.className = "lobby-empty";
+    loading.textContent = "Ищем открытые комнаты…";
+    list.appendChild(loading);
     try {
-      const rooms = await window.AKIRAOnlineGames.listLobbies("chess");
+      const rooms = await window.AKIRAOnlineGames.listLobbies(gameId);
+      if (state.selectedGame !== gameId) return;
       list.replaceChildren();
       if (!rooms.length) {
-        const empty = document.createElement("p");
-        empty.className = "section-description";
-        empty.textContent = "Активных лобби пока нет. Создай своё — друг сможет подключиться.";
+        const empty = document.createElement("div");
+        empty.className = "lobby-empty";
+        empty.innerHTML = '<span class="lobby-empty-icon">✦</span><strong>Пока тихо</strong><span>Открытых комнат нет. Нажми «Найти онлайн-матч», чтобы создать первую.</span>';
         list.appendChild(empty);
         return;
       }
-      rooms.forEach((room) => {
-        const item = document.createElement("div");
+      rooms.forEach((room, index) => {
+        const item = document.createElement("article");
         item.className = "chess-lobby-item";
+        const avatar = document.createElement("div");
+        avatar.className = "lobby-player-avatar";
+        avatar.textContent = (room.players?.[0]?.name || "И").trim().charAt(0).toUpperCase();
         const info = document.createElement("div");
+        info.className = "lobby-player-info";
         const name = document.createElement("strong");
         name.textContent = room.players?.[0]?.name || "Игрок";
-        const meta = document.createElement("p");
-        meta.className = "section-description";
-        meta.textContent = "Ожидает соперника · код " + room.code;
-        info.append(name, meta);
+        const meta = document.createElement("span");
+        meta.textContent = "Ожидает соперника";
+        const code = document.createElement("small");
+        code.textContent = "Комната · " + room.code;
+        info.append(name, meta, code);
         const join = document.createElement("button");
         join.type = "button";
-        join.className = "btn";
-        join.dataset.joinChessLobby = room.code;
+        join.className = "lobby-join-button";
+        join.dataset.joinGameLobby = room.code;
+        join.dataset.lobbyGame = gameId;
         join.textContent = "Войти";
-        item.append(info, join);
+        item.append(avatar, info, join);
         list.appendChild(item);
       });
     } catch (error) {
-      list.textContent = error.message || "Не удалось загрузить лобби.";
+      list.replaceChildren();
+      const failed = document.createElement("div");
+      failed.className = "lobby-empty lobby-error";
+      failed.textContent = error.message || "Не удалось загрузить комнаты.";
+      list.appendChild(failed);
     }
   }
 
-  async function joinChessLobby(code) {
+  async function joinGameLobby(code, gameId) {
     try {
-      const result = await window.AKIRAOnlineGames.joinLobby(code, "chess");
-      state.selectedGame = "chess";
-      showPanel("chess");
-      setStatus(result.message || "Подключение к партии…", "chess");
+      const result = await window.AKIRAOnlineGames.joinLobby(code, gameId);
+      state.selectedGame = gameId;
+      showPanel(gameId);
+      setStatus(result.message || "Подключение к партии…", gameId);
     } catch (error) {
       toast(error.message || "Не удалось войти в лобби.", "error");
     }
@@ -562,10 +593,10 @@
       }
 
       const refreshLobbies = event.target.closest("#chess-refresh-lobbies");
-      if (refreshLobbies) { event.preventDefault(); loadChessLobbies(); return; }
+      if (refreshLobbies) { event.preventDefault(); loadGameLobbies(); return; }
 
-      const lobbyJoin = event.target.closest("[data-join-chess-lobby]");
-      if (lobbyJoin) { event.preventDefault(); joinChessLobby(lobbyJoin.dataset.joinChessLobby); return; }
+      const lobbyJoin = event.target.closest("[data-join-game-lobby]");
+      if (lobbyJoin) { event.preventDefault(); joinGameLobby(lobbyJoin.dataset.joinGameLobby, lobbyJoin.dataset.lobbyGame || state.selectedGame); return; }
 
       const startButton = event.target.closest("#start-game-button");
 
