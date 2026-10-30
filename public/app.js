@@ -250,48 +250,95 @@ async function loadTasks() {
 }
 
 
-async function loadCollection(){
- const casesEl=$("#case-list"), collectionEl=$("#skin-collection");
- if(!casesEl||!collectionEl)return;
+const COLLECTION_CACHE_TTL = 15000;
+let collectionRequest = null;
+
+function collectionCacheKey(){
+ const userId=window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+ return "akira:collection:"+(userId?String(userId):"guest");
+}
+function readCollectionCache(){
  try{
-  const data=await api("/collection");
-  casesEl.replaceChildren();
-  data.cases.forEach(item=>{
-   const card=document.createElement("div");card.className="case-item";
-   const art=document.createElement("div");art.className="case-art";art.textContent=item.emoji;
-   const info=document.createElement("div");info.className="case-info";
-   const title=document.createElement("strong");title.textContent=item.name;
-   const desc=document.createElement("span");desc.textContent=item.description;
-   const price=document.createElement("span");price.className="case-price";price.textContent=formatNumber(item.price)+" 🍪";
-   info.append(title,desc,price);
-   const button=document.createElement("button");button.className="buy-button";button.type="button";button.textContent="Открыть";
-   button.addEventListener("click",()=>openCase(item.id,button));
-   card.append(art,info,button);casesEl.append(card);
-  });
-  collectionEl.replaceChildren();
-  const owned=new Set(data.owned.map(item=>item.skin_id));
-  state.specialSkinBonus=(owned.has("dragon")?100000:0)+(owned.has("golden")?10000:0);
-  setText("#click-power",formatNumber(getClickPower()));
-  setText("#profile-click",formatNumber(getClickPower()));
-  const equipped=data.equipped;
-  const currentSkin=data.skins.find(s=>s.id===equipped);
-  const cookieButton=$("#cookie-button");
-  if(cookieButton&&currentSkin){cookieButton.replaceChildren();if(currentSkin.image){const img=document.createElement("img");img.src=currentSkin.image;img.alt=currentSkin.name;img.className="equipped-skin-image";cookieButton.append(img);}else cookieButton.textContent=currentSkin.emoji;}
-  const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+data.skins.length;
-  const shards=$("#shards-balance");if(shards)shards.textContent=formatNumber(data.shards||0);
-  const setBonus=$("#skin-set-bonus");if(setBonus)setBonus.textContent="Бонус коллекции: ×"+Number(data.set_bonus||1).toFixed(2);
-  data.skins.forEach(skin=>{
-   const item=data.owned.find(row=>row.skin_id===skin.id);
-   const card=document.createElement("div");card.className="skin-card rarity-"+skin.rarity+(item?" owned":" locked")+(skin.id===equipped?" equipped":"");
-   const icon=document.createElement("div");icon.className="skin-icon";if(item&&skin.image){const img=document.createElement("img");img.src=skin.image;img.alt=skin.name;img.className="skin-preview-image";icon.append(img);}else icon.textContent=item?skin.emoji:"❔";
-   const name=document.createElement("strong");name.textContent=item?skin.name:"Не найден";
-   const rarity=document.createElement("span");rarity.textContent=skin.label;
-   const button=document.createElement("button");button.type="button";button.className="skin-equip";
-   button.textContent=!item?"Закрыто":skin.id===equipped?"Надет":"Надеть";button.disabled=!item||skin.id===equipped;
-   button.addEventListener("click",()=>equipSkin(skin.id));
-   card.append(icon,name,rarity,button);collectionEl.append(card);
-  });
- }catch(error){casesEl.textContent="Не удалось загрузить кейсы.";collectionEl.textContent=error.message||"Не удалось загрузить коллекцию.";}
+  const raw=localStorage.getItem(collectionCacheKey());
+  if(!raw)return null;
+  const parsed=JSON.parse(raw);
+  return parsed&&parsed.data?parsed:null;
+ }catch{return null;}
+}
+function writeCollectionCache(data){
+ try{localStorage.setItem(collectionCacheKey(),JSON.stringify({savedAt:Date.now(),data}));}catch{}
+}
+function renderCollection(data){
+ const casesEl=$("#case-list"),collectionEl=$("#skin-collection");
+ if(!casesEl||!collectionEl||!data)return;
+ casesEl.replaceChildren();
+ (data.cases||[]).forEach(item=>{
+  const card=document.createElement("div");card.className="case-item";
+  const art=document.createElement("div");art.className="case-art";art.textContent=item.emoji;
+  const info=document.createElement("div");info.className="case-info";
+  const title=document.createElement("strong");title.textContent=item.name;
+  const desc=document.createElement("span");desc.textContent=item.description;
+  const price=document.createElement("span");price.className="case-price";price.textContent=formatNumber(item.price)+" 🍪";
+  info.append(title,desc,price);
+  const button=document.createElement("button");button.className="buy-button";button.type="button";button.textContent="Открыть";
+  button.addEventListener("click",()=>openCase(item.id,button));
+  card.append(art,info,button);casesEl.append(card);
+ });
+ collectionEl.replaceChildren();
+ const ownedRows=Array.isArray(data.owned)?data.owned:[];
+ const skins=Array.isArray(data.skins)?data.skins:[];
+ const owned=new Set(ownedRows.map(item=>item.skin_id));
+ state.specialSkinBonus=(owned.has("dragon")?100000:0)+(owned.has("golden")?10000:0);
+ setText("#click-power",formatNumber(getClickPower()));
+ setText("#profile-click",formatNumber(getClickPower()));
+ const equipped=data.equipped;
+ const currentSkin=skins.find(s=>s.id===equipped);
+ const cookieButton=$("#cookie-button");
+ if(cookieButton&&currentSkin){
+  cookieButton.replaceChildren();
+  if(currentSkin.image){
+   const img=document.createElement("img");img.src=currentSkin.image;img.alt=currentSkin.name;img.className="equipped-skin-image";img.loading="lazy";cookieButton.append(img);
+  }else cookieButton.textContent=currentSkin.emoji;
+ }
+ const count=$("#collection-count");if(count)count.textContent=owned.size+" / "+skins.length;
+ const shards=$("#shards-balance");if(shards)shards.textContent=formatNumber(data.shards||0);
+ const setBonus=$("#skin-set-bonus");if(setBonus)setBonus.textContent="Бонус коллекции: ×"+Number(data.set_bonus||1).toFixed(2);
+ skins.forEach(skin=>{
+  const item=ownedRows.find(row=>row.skin_id===skin.id);
+  const card=document.createElement("div");card.className="skin-card rarity-"+skin.rarity+(item?" owned":" locked")+(skin.id===equipped?" equipped":"");
+  const icon=document.createElement("div");icon.className="skin-icon";
+  if(item&&skin.image){
+   const img=document.createElement("img");img.src=skin.image;img.alt=skin.name;img.className="skin-preview-image";img.loading="lazy";icon.append(img);
+  }else icon.textContent=item?skin.emoji:"❔";
+  const name=document.createElement("strong");name.textContent=item?skin.name:"Не найден";
+  const rarity=document.createElement("span");rarity.textContent=skin.label;
+  const button=document.createElement("button");button.type="button";button.className="skin-equip";
+  button.textContent=!item?"Закрыто":skin.id===equipped?"Надет":"Надеть";button.disabled=!item||skin.id===equipped;
+  button.addEventListener("click",()=>equipSkin(skin.id));
+  card.append(icon,name,rarity,button);collectionEl.append(card);
+ });
+}
+
+async function loadCollection({force=false}={}){
+ const casesEl=$("#case-list"),collectionEl=$("#skin-collection");
+ if(!casesEl||!collectionEl)return;
+ const cached=readCollectionCache();
+ if(cached)renderCollection(cached.data);
+ if(!force&&cached&&Date.now()-cached.savedAt<COLLECTION_CACHE_TTL)return;
+ if(collectionRequest)return collectionRequest;
+ collectionRequest=(async()=>{
+  try{
+   const data=await api("/collection");
+   writeCollectionCache(data);
+   renderCollection(data);
+  }catch(error){
+   if(!cached){
+    casesEl.textContent="Не удалось загрузить кейсы.";
+    collectionEl.textContent=error.message||"Не удалось загрузить коллекцию.";
+   }
+  }finally{collectionRequest=null;}
+ })();
+ return collectionRequest;
 }
 async function openCase(caseId,button){
  const result=$("#case-result");if(button)button.disabled=true;
