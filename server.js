@@ -126,14 +126,20 @@ function rollSkin(caseId) {
 }
 
 const UPGRADES = {
-  click: { base: 50, factor: 1.65, max: 100, column: "click_power" },
-  auto: { base: 250, factor: 1.8, max: 50, column: "auto_level" },
-  multiplier: { base: 1000, factor: 2.1, max: 25, column: "multiplier_level" }
+  // click_power starts at 1 for the base click, so upgrade level is click_power - 1.
+  click: { base: 50, factor: 1.65, max: 20, column: "click_power", offset: 1 },
+  auto: { base: 250, factor: 1.8, max: 20, column: "auto_level", offset: 0 },
+  multiplier: { base: 1000, factor: 2.1, max: 20, column: "multiplier_level", offset: 0 }
 };
+
+function upgradeLevel(type, player) {
+  const cfg = UPGRADES[type];
+  return cfg ? Math.max(0, Number(player[cfg.column] || 0) - (cfg.offset || 0)) : 0;
+}
 
 function upgradePrice(type, player) {
   const cfg = UPGRADES[type];
-  return cfg ? Math.floor(cfg.base * Math.pow(cfg.factor, Number(player[cfg.column] || 0))) : 0;
+  return cfg ? Math.floor(cfg.base * Math.pow(cfg.factor, upgradeLevel(type, player))) : 0;
 }
 
 function publicPlayer(player) {
@@ -147,13 +153,16 @@ function publicPlayer(player) {
     total_earned: Number(player.total_earned || 0),
     monthly_top_rank: player.monthly_top_rank && player.monthly_top_period === new Date().toISOString().slice(0, 7) ? Number(player.monthly_top_rank) : null,
     click_power: Number(player.click_power || 1),
+    click_upgrade_level: upgradeLevel("click", player),
     auto_level: Number(player.auto_level || 0),
+    auto_upgrade_level: upgradeLevel("auto", player),
     auto_power: Number(player.auto_level || 0),
     prestige_level: Number(player.prestige_level || 0),
     prestige_crystals: Number(player.prestige_crystals || 0),
     shards: Number(player.shards || 0),
     prestige_multiplier: 1 + Number(player.prestige_level || 0) * 0.1,
     multiplier_level: Number(player.multiplier_level || 0),
+    multiplier_upgrade_level: upgradeLevel("multiplier", player),
     rank_title: rankForEarned(Number(player.total_earned || 0)).title,
     rank_id: rankForEarned(Number(player.total_earned || 0)).rank,
     rank_frame: rankForEarned(Number(player.total_earned || 0)).frame,
@@ -383,7 +392,7 @@ async function purchaseUpgrade(req, res, next) {
 
     const player = result.rows[0];
     const cfg = UPGRADES[type];
-    const level = Number(player[cfg.column] || 0);
+    const level = upgradeLevel(type, player);
 
     if (level >= cfg.max) {
       await client.query("ROLLBACK");
