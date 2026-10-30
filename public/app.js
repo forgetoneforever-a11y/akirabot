@@ -482,15 +482,60 @@ async function clickCookie(event) {
    УЛУЧШЕНИЯ
 ========================= */
 
+const UPGRADE_COUNTDOWN_SECONDS = { click: 3, auto: 5, multiplier: 600 };
+const upgradeCountdowns = new Map();
+
+function formatUpgradeCountdown(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0
+    ? String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0")
+    : String(secs);
+}
+
+function startUpgradeCountdown(type, button) {
+  if (upgradeCountdowns.has(type)) {
+    clearInterval(upgradeCountdowns.get(type).timer);
+    upgradeCountdowns.delete(type);
+    button.textContent = "Купить";
+    button.classList.remove("counting");
+    button.disabled = false;
+    showToast("Покупка отменена");
+    return;
+  }
+
+  const duration = UPGRADE_COUNTDOWN_SECONDS[type];
+  if (!duration) return;
+  const finishAt = Date.now() + duration * 1000;
+  button.disabled = false;
+  button.classList.add("counting");
+  button.setAttribute("aria-live", "polite");
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((finishAt - Date.now()) / 1000));
+    button.textContent = remaining > 0
+      ? "Отмена · " + formatUpgradeCountdown(remaining)
+      : "Покупка…";
+    if (remaining <= 0) {
+      clearInterval(upgradeCountdowns.get(type)?.timer);
+      upgradeCountdowns.delete(type);
+      button.classList.remove("counting");
+      button.disabled = false;
+      buyUpgrade(type);
+    }
+  };
+
+  const timer = setInterval(tick, 250);
+  upgradeCountdowns.set(type, { timer, button });
+  tick();
+}
+
 async function buyUpgrade(type) {
   if (state.loading) return;
 
   state.loading = true;
-
   const buttons = $$("[data-upgrade]");
-  buttons.forEach((button) => {
-    button.disabled = true;
-  });
+  buttons.forEach((item) => { item.disabled = true; });
 
   try {
     const data = await api("/upgrades", {
@@ -503,15 +548,14 @@ async function buyUpgrade(type) {
     } else {
       await loadState();
     }
-
     showToast(data.message || "Улучшение куплено!");
   } catch (error) {
     console.error("Ошибка покупки:", error);
     showToast(error.message || "Не удалось купить улучшение");
   } finally {
     state.loading = false;
-    buttons.forEach((button) => {
-      button.disabled = false;
+    buttons.forEach((item) => {
+      if (!upgradeCountdowns.has(item.dataset.upgrade)) item.disabled = false;
     });
   }
 }
@@ -898,7 +942,7 @@ function initEventHandlers() {
   $("#cookie-button")?.addEventListener("click",e=>{animateCookieClick(e);clickCookie(e);});
 
   $$("[data-upgrade]").forEach((button) => {
-    button.addEventListener("click", () => buyUpgrade(button.dataset.upgrade));
+    button.addEventListener("click", () => startUpgradeCountdown(button.dataset.upgrade, button));
   });
 
   // Делегирование кликов: навигация продолжит работать даже после обновления DOM.
