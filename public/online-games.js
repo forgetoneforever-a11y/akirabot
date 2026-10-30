@@ -61,26 +61,43 @@
       window.dispatchEvent(new CustomEvent("akira:online-error", { detail: { message } }));
     });
 
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Не удалось подключиться к игровому серверу.")), 15000);
-      socket.once("connect", () => { clearTimeout(timer); resolve(); });
-      socket.once("connect_error", (error) => { clearTimeout(timer); reject(new Error(error?.message || "Ошибка подключения.")); });
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error("Не удалось подключиться к игровому серверу."));
+        }, 15000);
+        socket.once("connect", () => { clearTimeout(timer); resolve(); });
+        socket.once("connect_error", (error) => {
+          clearTimeout(timer);
+          reject(new Error(error?.message || "Ошибка подключения."));
+        });
+      });
 
-    const result = await emitAck(socket, "game:quick-match", {
-      ...user,
-      game
-    });
+      const result = await emitAck(socket, "game:quick-match", {
+        ...user,
+        game
+      });
     state.roomCode = result.roomCode;
     if (result.state) apply(result.state);
     if (game === "chess") window.startChessGame?.({ mode: "online" });
     if (game === "durak") window.startDurakGame?.({ mode: "online" });
     if (state.snapshot) apply(state.snapshot);
 
-    return {
-      success: true,
-      message: result.waiting ? "Ищем второго игрока. Оставь игру открытой…" : "Соперник найден. Матч начинается!"
-    };
+      return {
+        success: true,
+        message: result.waiting ? "Ищем второго игрока. Оставь игру открытой…" : "Соперник найден. Матч начинается!"
+      };
+    } catch (error) {
+      socket.removeAllListeners();
+      socket.disconnect();
+      if (state.socket === socket) {
+        state.socket = null;
+        state.roomCode = null;
+        state.game = null;
+        state.snapshot = null;
+      }
+      throw error;
+    }
   }
 
   async function action(action, payload = {}) {
