@@ -655,11 +655,9 @@
       try {
         move = chooseBotMove();
         if (move) {
-          result = state.game.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q",
-          });
+          const botMove = { from: move.from, to: move.to };
+          if (move.promotion) botMove.promotion = move.promotion;
+          result = state.game.move(botMove);
         }
 
         // Надёжный запасной вариант: если оценка позиции не смогла выбрать ход,
@@ -668,11 +666,9 @@
           const fallbackMoves = state.game.moves({ verbose: true });
           if (fallbackMoves.length) {
             const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({
-              from: fallback.from,
-              to: fallback.to,
-              promotion: fallback.promotion || "q",
-            });
+            const fallbackMove = { from: fallback.from, to: fallback.to };
+            if (fallback.promotion) fallbackMove.promotion = fallback.promotion;
+            result = state.game.move(fallbackMove);
           }
         }
       } catch (error) {
@@ -681,7 +677,9 @@
           const fallbackMoves = state.game && state.game.moves({ verbose: true });
           if (fallbackMoves && fallbackMoves.length) {
             const fallback = fallbackMoves[Math.floor(Math.random() * fallbackMoves.length)];
-            result = state.game.move({ from: fallback.from, to: fallback.to, promotion: fallback.promotion || "q" });
+            const fallbackMove = { from: fallback.from, to: fallback.to };
+            if (fallback.promotion) fallbackMove.promotion = fallback.promotion;
+            result = state.game.move(fallbackMove);
           }
         } catch (fallbackError) {
           console.error("[AKIRA Chess] Запасной ход тоже не удался:", fallbackError);
