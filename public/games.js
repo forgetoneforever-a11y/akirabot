@@ -507,7 +507,7 @@
 
   async function joinGameLobby(code, gameId) {
     try {
-      const result = await window.AKIRAOnlineGames.joinLobby(code, gameId);
+      const result = await window.AKIRAOnlineGames.joinLobby(code, gameId, { chessColor: state.chessColor });
       state.selectedGame = gameId;
       showPanel(gameId);
       setStatus(result.message || "Подключение к партии…", gameId);
