@@ -64,6 +64,7 @@
     history: [],
     botTimer: null,
     moveCount: 0,
+    pendingAnimation: null,
   };
 
   // Совместимость с chess.js 0.10.x (старый API) и 1.x (новый API).
@@ -224,6 +225,51 @@
     return null;
   }
 
+  function animateChessMove(move) {
+    if (!move || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const board = getBoardElement();
+    if (!board) return;
+    const fromSquare = board.querySelector(`[data-square="${move.from}"]`);
+    const toSquare = board.querySelector(`[data-square="${move.to}"]`);
+    if (!fromSquare || !toSquare) return;
+    const movingPiece = move.piece
+      ? PIECES[move.color || "w"][move.piece]
+      : (toSquare.querySelector(".chess-piece")?.textContent || "");
+    if (!movingPiece) return;
+
+    const fromRect = fromSquare.getBoundingClientRect();
+    const toRect = toSquare.getBoundingClientRect();
+    const destinationPiece = toSquare.querySelector(".chess-piece");
+    if (destinationPiece) destinationPiece.style.opacity = "0";
+
+    const ghost = document.createElement("span");
+    ghost.className = "chess-moving-piece";
+    ghost.textContent = movingPiece;
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.style.left = `${fromRect.left}px`;
+    ghost.style.top = `${fromRect.top}px`;
+    ghost.style.width = `${fromRect.width}px`;
+    ghost.style.height = `${fromRect.height}px`;
+    ghost.style.fontSize = `${Math.min(fromRect.width, fromRect.height) * 0.78}px`;
+    document.body.appendChild(ghost);
+
+    const dx = toRect.left - fromRect.left;
+    const dy = toRect.top - fromRect.top;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.04)`;
+      });
+    });
+    ghost.addEventListener("transitionend", () => {
+      ghost.remove();
+      if (destinationPiece?.isConnected) destinationPiece.style.opacity = "";
+    }, { once: true });
+    window.setTimeout(() => {
+      if (ghost.isConnected) ghost.remove();
+      if (destinationPiece?.isConnected) destinationPiece.style.opacity = "";
+    }, 700);
+  }
+
   function renderBoard() {
     const board = getBoardElement();
 
@@ -317,6 +363,12 @@
 
         board.appendChild(square);
       }
+    }
+
+    if (state.pendingAnimation) {
+      const animation = state.pendingAnimation;
+      state.pendingAnimation = null;
+      animateChessMove(animation);
     }
 
     renderMoveHistory();
@@ -569,6 +621,7 @@
       from: move.from,
       to: move.to,
     };
+    state.pendingAnimation = { from: move.from, to: move.to, piece: move.piece, color: move.color };
 
     state.moveCount += 1;
 
@@ -772,6 +825,7 @@
         from: result.from,
         to: result.to,
       };
+      state.pendingAnimation = { from: result.from, to: result.to, piece: result.piece, color: result.color };
 
       state.moveCount += 1;
 
@@ -925,8 +979,14 @@
 
   function applyOnlineChessState(snapshot) {
     if (state.mode !== "online" || !snapshot?.chess || !state.game) return;
+    const previousLength = state.game.history().length;
     try {
       state.game.load(snapshot.chess.fen);
+      const updatedHistory = state.game.history({ verbose: true });
+      if (updatedHistory.length > previousLength) {
+        const last = updatedHistory[updatedHistory.length - 1];
+        state.pendingAnimation = { from: last.from, to: last.to, piece: last.piece, color: last.color };
+      }
     } catch (error) {
       console.error("[AKIRA Chess] Invalid server FEN", error);
       return;
