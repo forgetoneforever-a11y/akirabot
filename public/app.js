@@ -1238,7 +1238,10 @@ function initEventHandlers() {
 
   $("#daily-button")?.addEventListener("click", claimDailyReward);
   $("#prestige-button")?.addEventListener("click", performPrestige);
-  $("#daily-shop-button")?.addEventListener("click", () => switchTab("profile"));
+  $("#daily-shop-button")?.addEventListener("click", () => {
+    switchTab("profile");
+    document.querySelector('.subtab-button[data-subtab-group="profile"][data-subtab="tasks"]')?.click();
+  });
   $("#friend-search-button")?.addEventListener("click", searchFriend);
   $("#invite-friend-button")?.addEventListener("click", inviteFriend);
   $("#friend-username")?.addEventListener("keydown",e=>{if(e.key==="Enter")searchFriend();});
