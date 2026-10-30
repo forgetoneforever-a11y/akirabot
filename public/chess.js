@@ -66,6 +66,41 @@
     moveCount: 0,
   };
 
+  // Совместимость с chess.js 0.10.x (старый API) и 1.x (новый API).
+  function chessFlag(newName, oldName) {
+    if (!state.game) return false;
+    const method = typeof state.game[newName] === "function"
+      ? newName
+      : oldName;
+    return typeof state.game[method] === "function"
+      ? Boolean(state.game[method]())
+      : false;
+  }
+
+  function isInCheck() {
+    return chessFlag("isCheck", "in_check");
+  }
+
+  function isCheckmate() {
+    return chessFlag("isCheckmate", "in_checkmate");
+  }
+
+  function isDraw() {
+    return chessFlag("isDraw", "in_draw");
+  }
+
+  function isStalemate() {
+    return chessFlag("isStalemate", "in_stalemate");
+  }
+
+  function isThreefoldRepetition() {
+    return chessFlag("isThreefoldRepetition", "in_threefold_repetition");
+  }
+
+  function isInsufficientMaterial() {
+    return chessFlag("isInsufficientMaterial", "insufficient_material");
+  }
+
   function createChessInstance() {
     if (typeof window.Chess !== "function") {
       throw new Error(
@@ -229,7 +264,7 @@
           }
         }
 
-        if (state.game.isCheck()) {
+        if (isInCheck()) {
           const checkedColor = state.game.turn();
           const kingSquare = findKingSquare(checkedColor);
           if (kingSquare === squareName) {
@@ -354,7 +389,7 @@
   function describePosition() {
     if (!state.game) return "";
 
-    if (state.game.isCheckmate()) {
+    if (isCheckmate()) {
       const winner = oppositeColor(state.game.turn());
 
       return winner === state.playerColor
@@ -362,21 +397,19 @@
         : "Мат! Бот победил.";
     }
 
-    if (state.game.isDraw()) {
+    if (isDraw()) {
       return "Ничья.";
     }
 
-    if (typeof state.game.isStalemate === "function" && state.game.isStalemate()) {
+    if (isStalemate()) {
       return "Пат! Ничья.";
     }
 
-    if (typeof state.game.isThreefoldRepetition === "function" &&
-        state.game.isThreefoldRepetition()) {
+    if (isThreefoldRepetition()) {
       return "Ничья: позиция повторилась трижды.";
     }
 
-    if (typeof state.game.isInsufficientMaterial === "function" &&
-        state.game.isInsufficientMaterial()) {
+    if (isInsufficientMaterial()) {
       return "Ничья: недостаточно материала для мата.";
     }
 
