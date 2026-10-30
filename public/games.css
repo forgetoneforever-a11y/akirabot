@@ -1229,3 +1229,7 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
 
 
 #tab-games #game-settings [hidden] { display:none !important; }
+
+
+/* Keep conditionally hidden game settings hidden in Telegram WebView. */
+#tab-games #game-settings .game-setting-field[hidden] { display: none !important; }
