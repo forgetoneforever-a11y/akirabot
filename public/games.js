@@ -265,6 +265,12 @@
     }
 
     readSettings();
+    const lobbySection = $("#chess-lobbies");
+    if (lobbySection) {
+      const showChessLobbies = state.selectedGame === "chess" && mode === "online";
+      lobbySection.hidden = !showChessLobbies;
+      if (showChessLobbies) loadChessLobbies();
+    }
   }
 
   function startGame() {
