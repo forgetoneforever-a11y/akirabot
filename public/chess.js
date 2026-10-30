@@ -65,6 +65,7 @@
     botTimer: null,
     moveCount: 0,
     pendingAnimation: null,
+    renderedHistoryKey: null,
   };
 
   // Совместимость с chess.js 0.10.x (старый API) и 1.x (новый API).
@@ -280,6 +281,9 @@
 
     const boardRows = state.game.board();
     const flipped = state.playerColor === "b";
+    const checked = isInCheck();
+    const checkedKingSquare = checked ? findKingSquare(state.game.turn()) : null;
+    const fragment = document.createDocumentFragment();
 
     for (let visualRow = 0; visualRow < 8; visualRow += 1) {
       for (let visualCol = 0; visualCol < 8; visualCol += 1) {
@@ -310,14 +314,10 @@
           }
         }
 
-        if (isInCheck()) {
-          const checkedColor = state.game.turn();
-          const kingSquare = findKingSquare(checkedColor);
-          if (kingSquare === squareName) {
+        if (checked && checkedKingSquare === squareName) {
             square.classList.add("in-check");
             square.style.background = "radial-gradient(circle, rgba(255,65,90,.78), rgba(160,20,45,.42))";
             square.style.boxShadow = "inset 0 0 0 4px #ff405d, 0 0 18px rgba(255,55,85,.75)";
-          }
         }
 
         if (isLastMoveSquare(squareName)) {
@@ -357,13 +357,11 @@
           square.appendChild(rankLabel);
         }
 
-        square.addEventListener("click", () => {
-          onSquareClick(squareName);
-        });
-
-        board.appendChild(square);
+        fragment.appendChild(square);
       }
     }
+
+    board.replaceChildren(fragment);
 
     if (state.pendingAnimation) {
       const animation = state.pendingAnimation;
@@ -397,6 +395,10 @@
       }
     }
 
+    const moves = state.game.history();
+    const historyKey = moves.join("|");
+    if (state.renderedHistoryKey === historyKey) return;
+    state.renderedHistoryKey = historyKey;
     historyElement.replaceChildren();
 
     const title = document.createElement("strong");
@@ -404,8 +406,6 @@
     title.textContent = "История ходов";
 
     historyElement.appendChild(title);
-
-    const moves = state.game.history();
 
     if (!moves.length) {
       const empty = document.createElement("span");
@@ -936,12 +936,19 @@
     state.thinking = false;
 
     clearSelection();
+    state.renderedHistoryKey = null;
   }
 
   function bindControls() {
     const board = getBoardElement();
 
-    if (board) {
+    if (board && !board.dataset.chessEventsBound) {
+      board.dataset.chessEventsBound = "1";
+      board.addEventListener("click", (event) => {
+        const square = event.target.closest("[data-square]");
+        if (!square || !board.contains(square)) return;
+        onSquareClick(square.dataset.square);
+      });
       board.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         clearSelection();
