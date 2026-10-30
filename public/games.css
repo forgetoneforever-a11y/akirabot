@@ -1199,3 +1199,25 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
   #tab-games .lobby-player-avatar { width:36px; height:36px; border-radius:12px; }
   #tab-games .lobby-join-button { padding:0 11px; }
 }
+
+
+/* Smooth chess piece movement */
+.chess-moving-piece {
+  position: fixed;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  line-height: 1;
+  transform: translate3d(0,0,0);
+  transition: transform 430ms cubic-bezier(.22,.78,.22,1);
+  filter: drop-shadow(0 7px 9px rgba(0,0,0,.42));
+  will-change: transform;
+}
+.chess-square .chess-piece {
+  transition: opacity 90ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chess-moving-piece { display:none !important; }
+  .chess-square .chess-piece { transition:none !important; }
+}
