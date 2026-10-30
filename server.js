@@ -107,7 +107,7 @@ const pool = new Pool({
 const SKINS = [
  {id:"classic",name:"Классика",emoji:"🍪",rarity:"common",label:"Обычный",color:"#d8b08a"},
  {id:"choco",name:"STANDOFF 2",emoji:"🎯",image:"/images/standoff-skin.jpg",rarity:"common",label:"Обычный",color:"#b77a54"},
- {id:"mint",name:"Мятная",emoji:"🍃",rarity:"rare",label:"Редкий",color:"#69e0c1"},
+ {id:"mint",name:"Мятная",emoji:"🍃",image:"/images/oi-chort.jpg",rarity:"rare",label:"Редкий",color:"#69e0c1"},
  {id:"galaxy",name:"Галактика",emoji:"🌌",rarity:"epic",label:"Эпический",color:"#b49aff"},
  {id:"golden",name:"Золотая",emoji:"🌟",rarity:"epic",label:"Эпический",color:"#ffd36b"},
  {id:"dragon",name:"Драконья",emoji:"🐉",rarity:"legendary",label:"Легендарный",color:"#ff79c8"}
