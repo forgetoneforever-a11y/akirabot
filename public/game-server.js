@@ -798,6 +798,34 @@ function registerHandlers(io, socket) {
     }
   });
 
+  socket.on("game:lobbies", (payload = {}, callback) => {
+    const game = String(payload.game || "").toLowerCase();
+    if (!GAME_TYPES.has(game)) {
+      const result = { ok: false, error: "Неизвестный тип игры." };
+      if (typeof callback === "function") callback(result);
+      return;
+    }
+    const items = [...rooms.values()]
+      .filter((room) => room.game === game && room.status === "waiting" && room.players.length === 1)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 50)
+      .map((room) => ({
+        code: room.code,
+        game: room.game,
+        status: room.status,
+        createdAt: room.createdAt,
+        players: room.players.map((player) => ({
+          id: player.id,
+          name: player.name,
+          avatar: player.avatar,
+          connected: Boolean(player.socketId)
+        }))
+      }));
+    const result = { ok: true, rooms: items };
+    socket.emit("game:lobbies", result);
+    if (typeof callback === "function") callback(result);
+  });
+
   socket.on("game:quick-match", (payload = {}, callback) => {
     try {
       const game = String(payload.game || "").toLowerCase();
