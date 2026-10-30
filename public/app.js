@@ -13,6 +13,7 @@ const state = {
   currentTab: "home",
   selectedGame: null,
   gameMode: "bot",
+  specialSkinBonus: 0,
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -153,7 +154,7 @@ function getClickPower() {
     player.multiplier_level ?? player.multiplierLevel
   );
 
-  return Math.floor(power * Math.pow(2, multiplierLevel) * number(player.rank_multiplier ?? 1));
+  return Math.floor(power * Math.pow(2, multiplierLevel) * number(player.rank_multiplier ?? 1)) + number(state.specialSkinBonus);
 }
 
 function getAutoPower() {
@@ -269,6 +270,7 @@ async function loadCollection(){
   });
   collectionEl.replaceChildren();
   const owned=new Set(data.owned.map(item=>item.skin_id));
+  state.specialSkinBonus=(owned.has("dragon")?100000:0)+(owned.has("golden")?10000:0);
   const equipped=data.equipped;
   const currentSkin=data.skins.find(s=>s.id===equipped);
   const cookieButton=$("#cookie-button");
