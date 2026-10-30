@@ -1221,3 +1221,8 @@ body.games-fullscreen #akira-game-toast { z-index:100; }
   .chess-moving-piece { display:none !important; }
   .chess-square .chess-piece { transition:none !important; }
 }
+
+#tab-games .lobby-player-avatar { overflow:hidden; }
+#tab-games .lobby-player-avatar img {
+  display:block; width:100%; height:100%; object-fit:cover; border-radius:inherit;
+}
