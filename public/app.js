@@ -778,7 +778,7 @@ function switchTab(tabName, direction = 0) {
     }
   });
 
-  if (tabName === "top") loadLeaderboard();
+  if (tabName === "top") { loadLeaderboard(); loadMonthlyLeaderboard(); }
   if (tabName === "profile") loadState();
 }
 
@@ -832,6 +832,56 @@ function initSwipeNavigation() {
 /* =========================
    РЕЙТИНГ
 ========================= */
+
+async function loadMonthlyLeaderboard() {
+  const container = $("#monthly-leaderboard");
+  if (!container) return;
+  container.textContent = "Загрузка месячного рейтинга…";
+  try {
+    const data = await api("/leaderboard/monthly");
+    const players = Array.isArray(data.players) ? data.players : [];
+    const label = $("#monthly-period-label");
+    if (label) label.textContent = data.period || "Текущий месяц";
+    container.replaceChildren();
+    if (!players.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "В этом месяце пока никто не набрал очки. Стань первым!";
+      container.append(empty);
+      return;
+    }
+    players.forEach((player, index) => {
+      const position = player.monthly_top_rank || index + 1;
+      const row = document.createElement("div");
+      row.className = "leaderboard-row monthly-leaderboard-row";
+      const rank = document.createElement("span");
+      rank.className = "leaderboard-rank";
+      rank.textContent = "#" + position;
+      const avatar = document.createElement("img");
+      avatar.className = "leaderboard-avatar";
+      avatar.src = getAvatarUrl(player);
+      avatar.alt = "";
+      avatar.loading = "lazy";
+      avatar.onerror = () => { avatar.onerror = null; avatar.src = "/avatar-default.svg"; };
+      const details = document.createElement("div");
+      details.className = "leaderboard-details";
+      const name = document.createElement("span");
+      name.className = "leaderboard-name";
+      name.textContent = (player.name || player.username || "Игрок") + " [топ #" + position + "]";
+      const level = document.createElement("span");
+      level.className = "leaderboard-level";
+      level.textContent = "LVL " + (player.level || 1) + " · " + (player.rank_title || "Новичок");
+      details.append(name, level);
+      const score = document.createElement("span");
+      score.className = "leaderboard-score";
+      score.textContent = formatNumber(player.monthly_earned) + " за месяц";
+      row.append(rank, avatar, details, score);
+      container.append(row);
+    });
+  } catch (error) {
+    container.textContent = error.message || "Не удалось загрузить месячный рейтинг";
+  }
+}
 
 async function loadLeaderboard() {
   const container = $("#leaderboard");
