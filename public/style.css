@@ -2479,3 +2479,35 @@ body[data-theme="classic"],
   .monthly-period-meta { flex:0 0 auto; }
   .monthly-countdown { max-width:132px; white-space:normal; text-align:center; }
 }
+
+
+/* Extra compact monthly leaderboard header and panel */
+.monthly-leaderboard-card { margin:12px 0 8px!important; padding:10px!important; border-radius:16px!important; }
+.monthly-leaderboard-heading { margin-bottom:8px!important; gap:6px 8px!important; }
+.monthly-leaderboard-heading h3 { font-size:14px!important; margin:0!important; }
+.monthly-leaderboard-heading .monthly-description {
+  display:block!important; margin:2px 0 0!important; padding:0!important;
+  font-size:10px!important; line-height:1.15!important; font-weight:500!important;
+  color:var(--muted,#aab5c5)!important;
+}
+.monthly-period-meta { gap:4px!important; }
+.monthly-period-label { font-size:10px!important; padding:4px 7px!important; }
+.monthly-countdown {
+  padding:3px 6px!important; font-size:8px!important; line-height:1.1!important;
+  max-width:118px!important; border-radius:9px!important;
+}
+#monthly-leaderboard { gap:6px!important; }
+#monthly-leaderboard .monthly-leaderboard-row {
+  min-height:62px!important; padding:8px!important; gap:7px!important; border-radius:13px!important;
+}
+#monthly-leaderboard .leaderboard-avatar { width:36px!important; height:36px!important; min-width:36px!important; max-width:36px!important; }
+#monthly-leaderboard .leaderboard-name { font-size:12px!important; }
+#monthly-leaderboard .leaderboard-level { font-size:10px!important; }
+#monthly-leaderboard .leaderboard-score { font-size:9px!important; max-width:76px!important; }
+@media(max-width:420px) {
+  .monthly-leaderboard-heading { flex-wrap:nowrap!important; }
+  .monthly-leaderboard-heading > div:first-child { flex:1 1 auto!important; }
+  .monthly-period-meta { flex:0 0 auto!important; }
+  .monthly-countdown { max-width:108px!important; white-space:normal!important; }
+  #monthly-leaderboard .monthly-leaderboard-row { grid-template-columns:24px 36px minmax(0,1fr) 70px!important; }
+}
