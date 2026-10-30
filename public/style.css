@@ -2325,3 +2325,21 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
 @media (prefers-reduced-motion: reduce) {
   .buy-button.counting { animation: none; }
 }
+
+/* Friends and gifts polish */
+.friends-card { overflow:hidden; }
+.friends-card .upgrades-header { align-items:flex-start; }
+.friends-search input { min-height:44px; }
+.friend-row { min-width:0; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+.friend-row:active { transform:scale(.99); }
+.friend-avatar { width:42px; height:42px; flex:0 0 42px; border-radius:14px; object-fit:cover; border:1px solid var(--border-strong); background:var(--surface-light); }
+.friend-info { flex:1; }
+.friend-row .buy-button { white-space:nowrap; }
+.friend-row .buy-button:disabled { opacity:.65; }
+.friends-empty { padding:15px; text-align:center; border:1px dashed var(--border); border-radius:14px; color:var(--text-secondary); font-size:12px; line-height:1.55; background:rgba(255,255,255,.025); }
+.friend-search-card { margin-top:8px; }
+@media(max-width:390px) {
+ .friend-row { gap:7px; padding:8px; }
+ .friend-avatar { width:36px; height:36px; flex-basis:36px; border-radius:12px; }
+ .friend-row .buy-button { padding:7px 8px; font-size:11px; }
+}
