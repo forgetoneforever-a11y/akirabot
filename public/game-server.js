@@ -469,8 +469,8 @@ function finishDurakRound(io, room, tookCards) {
   }
 
   room.message = tookCards
-    ? "Защищающийся забрал карты. Ход переходит к другому игроку."
-    : "Карты отбиты. Начинается новая атака.";
+    ? "Защищающийся забрал карты. Тот же игрок начинает новую атаку."
+    : "Карты отбиты. Защищавшийся начинает новую атаку.";
 
   setTurn(io, room, room.players[game.attacker].id);
   touchRoom(room);
