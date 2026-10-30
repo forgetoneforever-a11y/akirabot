@@ -2511,3 +2511,236 @@ body[data-theme="classic"],
   .monthly-countdown { max-width:108px!important; white-space:normal!important; }
   #monthly-leaderboard .monthly-leaderboard-row { grid-template-columns:24px 36px minmax(0,1fr) 70px!important; }
 }
+
+
+/* =====================================================
+   AKIRA CLASSIC — refined monochrome glass finish
+   ===================================================== */
+:root[data-theme="classic"], body[data-theme="classic"] {
+  color-scheme:dark;
+  --bg:#050505;
+  --bg-secondary:#101010;
+  --surface:rgba(18,18,18,.76);
+  --surface-light:rgba(35,35,35,.62);
+  --surface-hover:rgba(54,54,54,.78);
+  --primary:#f4f4f4;
+  --primary-dark:#bdbdbd;
+  --primary-soft:rgba(255,255,255,.09);
+  --primary-glow:rgba(255,255,255,.18);
+  --text:#f4f4f4;
+  --text-secondary:#b8b8b8;
+  --muted:#858585;
+  --border:rgba(255,255,255,.13);
+  --border-strong:rgba(255,255,255,.48);
+  --success:#d8d8d8;
+  --warning:#c8c8c8;
+  --danger:#dedede;
+  --shadow:0 18px 48px rgba(0,0,0,.48);
+  --shadow-glow:0 0 24px rgba(255,255,255,.10);
+  --akira-glass:rgba(17,17,17,.66);
+  --akira-glass-deep:rgba(5,5,5,.88);
+  --akira-glass-edge:rgba(255,255,255,.17);
+  --akira-pink:#eeeeee;
+  --akira-violet:#c9c9c9;
+}
+html:has(body[data-theme="classic"]), html[data-theme="classic"] {
+  background:#050505;
+}
+body[data-theme="classic"], :root[data-theme="classic"] body {
+  background:
+    radial-gradient(ellipse at 48% -12%,rgba(255,255,255,.12),transparent 42%),
+    radial-gradient(ellipse at 100% 38%,rgba(175,175,175,.055),transparent 36%),
+    radial-gradient(ellipse at 0% 82%,rgba(255,255,255,.035),transparent 34%),
+    linear-gradient(155deg,#030303 0%,#111 48%,#060606 100%)!important;
+  background-attachment:fixed!important;
+}
+[data-theme="classic"] body::before {
+  opacity:.10;
+  background-image:radial-gradient(rgba(255,255,255,.22) .55px,transparent .7px);
+  background-size:5px 5px;
+}
+[data-theme="classic"] body::after {
+  content:"";
+  position:fixed;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
+  opacity:.24;
+  background:
+    radial-gradient(ellipse at 64% -8%,rgba(255,255,255,.18),transparent 23%),
+    linear-gradient(132deg,transparent 34%,rgba(255,255,255,.035) 44%,transparent 47%),
+    linear-gradient(150deg,transparent 68%,rgba(255,255,255,.025) 73%,transparent 76%);
+}
+[data-theme="classic"] #app { position:relative; isolation:isolate; }
+[data-theme="classic"] #app > * { position:relative; z-index:1; }
+
+/* Glass surfaces */
+[data-theme="classic"] .card,
+[data-theme="classic"] .panel,
+[data-theme="classic"] .balance-card,
+[data-theme="classic"] .cookie-stage,
+[data-theme="classic"] .cookie-container,
+[data-theme="classic"] .upgrade-panel,
+[data-theme="classic"] .leaderboard,
+[data-theme="classic"] .profile-card,
+[data-theme="classic"] .theme-panel,
+[data-theme="classic"] .games-panel,
+[data-theme="classic"] .game-card,
+[data-theme="classic"] .game-board,
+[data-theme="classic"] .chess-container,
+[data-theme="classic"] .chess-panel,
+[data-theme="classic"] .game-history,
+[data-theme="classic"] .game-controls,
+[data-theme="classic"] .daily-reward-card,
+[data-theme="classic"] .section-card,
+[data-theme="classic"] .modal-content,
+[data-theme="classic"] .settings-panel,
+[data-theme="classic"] .shop-panel,
+[data-theme="classic"] .top-card,
+[data-theme="classic"] .monthly-leaderboard-card {
+  color:var(--text);
+  background-color:rgba(19,19,19,.66)!important;
+  background-image:linear-gradient(140deg,rgba(255,255,255,.085),rgba(255,255,255,.018) 52%,rgba(255,255,255,.035))!important;
+  border-color:rgba(255,255,255,.16)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.085),0 16px 42px rgba(0,0,0,.34)!important;
+  backdrop-filter:blur(24px) saturate(65%);
+  -webkit-backdrop-filter:blur(24px) saturate(65%);
+}
+[data-theme="classic"] .balance-card {
+  background-image:linear-gradient(112deg,rgba(255,255,255,.13),rgba(255,255,255,.025) 55%,rgba(255,255,255,.07))!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+[data-theme="classic"] .cookie-stage,
+[data-theme="classic"] .cookie-container {
+  background-image:radial-gradient(ellipse at center,rgba(255,255,255,.075),transparent 62%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.008))!important;
+}
+
+/* Typography and neutral accents */
+[data-theme="classic"] h1,
+[data-theme="classic"] h2,
+[data-theme="classic"] h3,
+[data-theme="classic"] .section-title,
+[data-theme="classic"] .brand-title,
+[data-theme="classic"] .profile-name,
+[data-theme="classic"] .level-badge { color:#f5f5f5!important; }
+[data-theme="classic"] .section-description,
+[data-theme="classic"] .muted,
+[data-theme="classic"] small { color:#a5a5a5; }
+[data-theme="classic"] .level-progress,
+[data-theme="classic"] .progress-track { background:rgba(255,255,255,.12)!important; }
+[data-theme="classic"] .level-progress > *,
+[data-theme="classic"] .progress-fill { background:linear-gradient(90deg,#777,#f2f2f2)!important; box-shadow:0 0 14px rgba(255,255,255,.18); }
+
+/* Buttons, controls and navigation */
+[data-theme="classic"] .navbar,
+[data-theme="classic"] .bottom-nav,
+[data-theme="classic"] .navigation,
+[data-theme="classic"] .nav-bar,
+[data-theme="classic"] .nav-tabs,
+[data-theme="classic"] .tab-navigation {
+  background:rgba(8,8,8,.78)!important;
+  border:1px solid rgba(255,255,255,.2)!important;
+  box-shadow:0 14px 38px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.09)!important;
+  backdrop-filter:blur(26px) saturate(60%);
+  -webkit-backdrop-filter:blur(26px) saturate(60%);
+}
+[data-theme="classic"] .nav-button,
+[data-theme="classic"] .tab-button,
+[data-theme="classic"] .btn-secondary,
+[data-theme="classic"] .games-exit-button {
+  color:#d8d8d8!important;
+  background:rgba(255,255,255,.025)!important;
+  border-color:rgba(255,255,255,.13)!important;
+}
+[data-theme="classic"] .nav-button.active,
+[data-theme="classic"] .tab-button.active,
+[data-theme="classic"] .nav-button.active:hover {
+  color:#fff!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.19),rgba(255,255,255,.055))!important;
+  border:1px solid rgba(255,255,255,.58)!important;
+  box-shadow:0 0 22px rgba(255,255,255,.12),inset 0 1px 0 rgba(255,255,255,.2)!important;
+}
+[data-theme="classic"] .btn:not(.btn-secondary),
+[data-theme="classic"] .buy-button,
+[data-theme="classic"] .skin-equip,
+[data-theme="classic"] .game-card-action {
+  color:#090909!important;
+  background:linear-gradient(135deg,#f4f4f4,#bcbcbc)!important;
+  border:1px solid rgba(255,255,255,.7)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 5px 16px rgba(0,0,0,.28)!important;
+}
+[data-theme="classic"] button:hover,
+[data-theme="classic"] .buy-button:hover {
+  border-color:rgba(255,255,255,.72)!important;
+  box-shadow:0 0 18px rgba(255,255,255,.12),inset 0 1px 0 rgba(255,255,255,.2)!important;
+}
+[data-theme="classic"] input,
+[data-theme="classic"] textarea,
+[data-theme="classic"] select,
+[data-theme="classic"] .input,
+[data-theme="classic"] .form-control {
+  color:#f4f4f4!important;
+  background:rgba(0,0,0,.48)!important;
+  border-color:rgba(255,255,255,.2)!important;
+}
+[data-theme="classic"] input::placeholder,
+[data-theme="classic"] textarea::placeholder { color:#858585!important; }
+
+/* Remove leftover violet/pink/blue coloring while keeping status readable */
+[data-theme="classic"] .leaderboard-level,
+[data-theme="classic"] .profile-level,
+[data-theme="classic"] .rank-title,
+[data-theme="classic"] .monthly-period-label,
+[data-theme="classic"] .monthly-countdown,
+[data-theme="classic"] .level-badge,
+[data-theme="classic"] .rank-ladder span {
+  color:#d5d5d5!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+[data-theme="classic"] .rank-ladder span,
+[data-theme="classic"] .monthly-period-label,
+[data-theme="classic"] .monthly-countdown {
+  background:rgba(255,255,255,.045)!important;
+}
+[data-theme="classic"] .upgrade-item,
+[data-theme="classic"] .upgrade-card,
+[data-theme="classic"] .shop-item,
+[data-theme="classic"] .friend-row,
+[data-theme="classic"] .achievement-card,
+[data-theme="classic"] .task-card {
+  background:linear-gradient(120deg,rgba(255,255,255,.055),rgba(255,255,255,.015))!important;
+  border-color:rgba(255,255,255,.14)!important;
+}
+[data-theme="classic"] .profile-avatar,
+[data-theme="classic"] #profile-avatar,
+[data-theme="classic"] .leaderboard-avatar,
+[data-theme="classic"] .friend-avatar,
+[data-theme="classic"] .avatar {
+  filter:grayscale(.82) contrast(1.04);
+  border-color:rgba(255,255,255,.38)!important;
+  box-shadow:0 0 0 3px rgba(255,255,255,.045),0 6px 18px rgba(0,0,0,.4)!important;
+}
+[data-theme="classic"] .monthly-leaderboard-row:first-child,
+[data-theme="classic"] .leaderboard-row:first-child {
+  border-color:rgba(255,255,255,.55)!important;
+  background:linear-gradient(115deg,rgba(255,255,255,.10),rgba(255,255,255,.025) 70%)!important;
+  box-shadow:0 0 18px rgba(255,255,255,.07),inset 0 1px 0 rgba(255,255,255,.09)!important;
+}
+[data-theme="classic"] .danger-button,
+[data-theme="classic"] .success,
+[data-theme="classic"] .warning { filter:grayscale(1); }
+[data-theme="classic"] .theme-option.active {
+  border-color:#f2f2f2!important;
+  box-shadow:0 0 20px rgba(255,255,255,.16)!important;
+}
+[data-theme="classic"] .theme-option[data-theme="classic"] .theme-preview {
+  background:linear-gradient(135deg,#fff 0%,#bdbdbd 48%,#171717 49%,#030303 100%)!important;
+}
+@media(prefers-reduced-motion:no-preference) {
+  [data-theme="classic"] .card,
+  [data-theme="classic"] .panel,
+  [data-theme="classic"] .monthly-leaderboard-card,
+  [data-theme="classic"] .balance-card {
+    transition:border-color .22s ease,box-shadow .22s ease,background .22s ease;
+  }
+}
