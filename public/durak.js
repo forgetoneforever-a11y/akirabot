@@ -849,29 +849,37 @@
   function botAttack() {
     if (!game.active || game.finished || game.turn !== "bot") return;
 
-    if (game.defender === "bot") {
-      const card = chooseBotAttackCard();
+    // The bot is the attacker when the player is defending. Previously this
+    // branch only changed the status and returned, so the bot never played a card.
+    if (game.defender !== "player") return;
 
-      if (!card) {
+    const card = chooseBotAttackCard();
+
+    if (!card) {
+      if (game.table.length && game.table.every((pair) => pair.defense)) {
         finishRound();
-        return;
+      } else {
+        setStatus("У бота нет карты для атаки. Завершаем раунд.");
       }
-
-      if (game.table.length > 0 && !canThrowIn(card)) {
-        finishRound();
-        return;
-      }
-
-      removeCard(game.botHand, card.id);
-      game.table.push({ attack: card, defense: null });
-
-      setStatus("Бот атакует. Твой ход — отбивайся или бери карты.");
-      game.turn = "player";
-      render();
       return;
     }
 
-    setStatus("Бот атакует…");
+    const attackLimit = Math.min(6, game.playerHand.length);
+    if (
+      game.table.length >= attackLimit ||
+      (game.table.length > 0 && !canThrowIn(card))
+    ) {
+      finishRound();
+      return;
+    }
+
+    removeCard(game.botHand, card.id);
+    game.table.push({ attack: card, defense: null });
+
+    setStatus("Бот атакует. Твой ход — отбивайся или бери карты.");
+    game.turn = "player";
+    render();
+    checkGameOver();
   }
 
   function botDefense() {
