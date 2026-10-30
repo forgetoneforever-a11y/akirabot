@@ -2868,3 +2868,56 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
 
 
 .upgrade-level{margin-top:5px;color:var(--muted-text,#9299a8);font-size:12px}.upgrade-level b{color:var(--text-primary,#f3f3f3);font-weight:800;font-variant-numeric:tabular-nums}.buy-button.upgrade-maxed{opacity:.72;cursor:default;border-color:rgba(255,255,255,.22)}
+
+
+/* Compact, consistent upgrade cards */
+#tab-shop .upgrade-item {
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 16px !important;
+  min-height: 132px;
+}
+#tab-shop .upgrade-info {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+#tab-shop .upgrade-name { margin-bottom: 5px; }
+#tab-shop .upgrade-description {
+  margin: 0 0 5px !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+}
+#tab-shop .upgrade-level {
+  display: inline-block;
+  margin: 2px 0 0 !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+#tab-shop .upgrade-price {
+  margin: 7px 0 0 !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+}
+#tab-shop .upgrade-item .buy-button {
+  min-width: 92px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+@media (max-width: 420px) {
+  #tab-shop .upgrade-item {
+    grid-template-columns: 46px minmax(0, 1fr) auto !important;
+    gap: 9px !important;
+    padding: 13px !important;
+    min-height: 116px;
+  }
+  #tab-shop .upgrade-icon { width: 44px; height: 44px; font-size: 22px; }
+  #tab-shop .upgrade-item .buy-button {
+    min-width: 78px;
+    min-height: 44px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
