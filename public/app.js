@@ -520,7 +520,7 @@ function renderState(data) {
   const prestigeButton = $("#prestige-button");
   if (prestigeButton) { prestigeButton.disabled = Number(player.balance || 0) < prestigeRequired; prestigeButton.textContent = Number(player.balance || 0) < prestigeRequired ? "Нужно ещё " + formatNumber(prestigeRequired - Number(player.balance || 0)) + " 🍪" : "✨ Переродиться"; }
   if (state.currentTab === "shop") loadCollection();
-  loadTasks();
+  if (state.currentTab === "profile") loadTasks();
 
   document.dispatchEvent(
     new CustomEvent("akira:state-updated", { detail: { player } })
@@ -568,12 +568,15 @@ function updateUpgradePrices() {
   }
 }
 let stateLoadPromise = null;
+let stateSyncVersion = 0;
 async function loadState() {
   if (stateLoadPromise) return stateLoadPromise;
+  const requestVersion = stateSyncVersion;
   stateLoadPromise = (async () => {
     try {
       const data = await api("/state");
-      renderState(data);
+      // Ignore a background snapshot that started before a newer click response.
+      if (requestVersion === stateSyncVersion) renderState(data);
     } catch (error) {
       console.error("Ошибка загрузки состояния:", error);
       showToast(error.message || "Не удалось загрузить игру");
@@ -619,28 +622,49 @@ function createClickPopup(event, reward) {
 }
 
 function animateCookieClick(e){const b=$("#cookie-button");if(!b)return;b.classList.remove("akira-click-pop");void b.offsetWidth;b.classList.add("akira-click-pop");const r=b.getBoundingClientRect(),x=e?.clientX??r.left+r.width/2,y=e?.clientY??r.top+r.height/2,s=document.createElement("span");s.className="akira-click-spark";s.textContent=["✨","+🍪","✦","💫"][Math.floor(Math.random()*4)];s.style.left=x+"px";s.style.top=y+"px";s.style.setProperty("--dx",(Math.random()*70-35)+"px");s.style.setProperty("--dy",(Math.random()*65+30)+"px");document.body.append(s);setTimeout(()=>s.remove(),750);}
-async function clickCookie(event) {
-  if (state.loading) return;
+let queuedClickCount = 0;
+let clickFlushTimer = null;
+let clickRequestInFlight = false;
 
-  animateCookie();
+function scheduleClickFlush() {
+  if (clickFlushTimer || clickRequestInFlight) return;
+  clickFlushTimer = setTimeout(() => {
+    clickFlushTimer = null;
+    flushClickQueue();
+  }, 110);
+}
+
+async function flushClickQueue() {
+  if (clickRequestInFlight || queuedClickCount <= 0) return;
+  const count = Math.min(25, queuedClickCount);
+  queuedClickCount -= count;
+  clickRequestInFlight = true;
+  stateSyncVersion++;
 
   try {
     const data = await api("/click", {
       method: "POST",
-      body: {},
+      body: { count },
     });
-
-    createClickPopup(event, data.reward ?? getClickPower());
-
-    if (data.player || data.balance !== undefined) {
-      renderState(data);
-    } else {
-      await loadState();
-    }
+    if (data.player) renderState(data);
+    else await loadState();
+    createClickPopup(null, data.reward ?? getClickPower() * count);
   } catch (error) {
     console.error("Ошибка клика:", error);
     showToast(error.message || "Не удалось выполнить клик");
+    // Restore unsent taps so a temporary network failure doesn't silently eat them.
+    queuedClickCount = Math.min(250, queuedClickCount + count);
+  } finally {
+    clickRequestInFlight = false;
+    if (queuedClickCount > 0) scheduleClickFlush();
   }
+}
+
+function clickCookie(event) {
+  if (state.loading) return;
+  animateCookie();
+  queuedClickCount = Math.min(250, queuedClickCount + 1);
+  scheduleClickFlush();
 }
 
 /* =========================
@@ -1173,7 +1197,7 @@ function startSelectedGame(mode) {
 ========================= */
 
 function initEventHandlers() {
-  $("#cookie-button")?.addEventListener("click",e=>{animateCookieClick(e);clickCookie(e);});
+  $("#cookie-button")?.addEventListener("click", e => clickCookie(e));
 
   $$("[data-upgrade]").forEach((button) => {
     button.addEventListener("click", () => startUpgradeCountdown(button.dataset.upgrade, button));
