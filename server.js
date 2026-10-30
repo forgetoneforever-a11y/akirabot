@@ -145,6 +145,7 @@ function publicPlayer(player) {
     avatar_url: player.avatar_url || null,
     balance: Number(player.balance || 0),
     total_earned: Number(player.total_earned || 0),
+    monthly_top_rank: player.monthly_top_rank && player.monthly_top_period === new Date().toISOString().slice(0, 7) ? Number(player.monthly_top_rank) : null,
     click_power: Number(player.click_power || 1),
     auto_level: Number(player.auto_level || 0),
     auto_power: Number(player.auto_level || 0),
@@ -318,6 +319,8 @@ app.get("/api/state", async (req, res, next) => {
       `UPDATE players
        SET balance = balance + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
            total_earned = total_earned + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
+           monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned ELSE 0 END + FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(last_auto_at, NOW()))))::BIGINT * auto_level * (1 + COALESCE(prestige_level, 0) * 0.1) * CASE WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=6 THEN 1.20 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=4 THEN 1.10 WHEN (SELECT COUNT(*) FROM player_skins WHERE telegram_id::text=players.telegram_id::text)>=2 THEN 1.05 ELSE 1 END,
+           monthly_period = TO_CHAR(NOW(), 'YYYY-MM'),
            last_auto_at = NOW()
        WHERE telegram_id = $1
        RETURNING *`,
@@ -348,7 +351,7 @@ app.post("/api/click", async (req, res, next) => {
 
     const updated = await client.query(
       `UPDATE players
-       SET balance = balance + $1, total_earned = total_earned + $1
+       SET balance = balance + $1, total_earned = total_earned + $1, monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned + $1 ELSE $1 END, monthly_period = TO_CHAR(NOW(), 'YYYY-MM')
        WHERE telegram_id = $2 RETURNING *`,
       [reward, player.telegram_id]
     );
@@ -459,6 +462,8 @@ app.post("/api/daily", async (req, res, next) => {
       `UPDATE players
        SET balance = balance + 500,
            total_earned = total_earned + 500,
+           monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned + 500 ELSE 500 END,
+           monthly_period = TO_CHAR(NOW(), 'YYYY-MM'),
            last_daily = CURRENT_DATE,
            last_daily_at = NOW()
        WHERE telegram_id = $1 RETURNING *`,
@@ -528,6 +533,17 @@ app.get("/api/leaderboard", async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+app.get("/api/leaderboard/monthly", async (req, res, next) => {
+  try {
+    const period = await pool.query("SELECT TO_CHAR(NOW(), 'YYYY-MM') AS period");
+    const currentPeriod = period.rows[0].period;
+    await pool.query(`WITH ranked AS (SELECT telegram_id, ROW_NUMBER() OVER (ORDER BY monthly_earned DESC, total_earned DESC, telegram_id ASC)::int AS position FROM players WHERE monthly_period = $1 AND monthly_earned > 0) UPDATE players p SET monthly_top_rank = ranked.position, monthly_top_period = $1 FROM ranked WHERE p.telegram_id = ranked.telegram_id`, [currentPeriod]);
+    await pool.query("UPDATE players SET monthly_top_rank = NULL, monthly_top_period = $1 WHERE monthly_top_period IS DISTINCT FROM $1", [currentPeriod]);
+    const result = await pool.query("SELECT name, username, avatar_url, balance, total_earned, monthly_earned, monthly_top_rank FROM players WHERE monthly_period = $1 AND monthly_earned > 0 ORDER BY monthly_earned DESC, total_earned DESC, telegram_id ASC LIMIT 50", [currentPeriod]);
+    res.json({ ok: true, period: currentPeriod, players: result.rows.map((player, index) => ({ rank: index + 1, monthly_top_rank: Number(player.monthly_top_rank || index + 1), name: player.name || player.username || "Игрок", username: player.username || "Игрок", avatar_url: player.avatar_url || null, balance: Number(player.balance || 0), total_earned: Number(player.total_earned || 0), monthly_earned: Number(player.monthly_earned || 0), level: Math.max(1, Math.floor(Math.sqrt(Number(player.total_earned || 0) / 1000)) + 1), rank_title: rankTitle(Number(player.total_earned || 0)) })) });
+  } catch (error) { next(error); }
 });
 
 app.patch("/api/profile", async (req, res, next) => {
@@ -639,7 +655,7 @@ app.post("/api/tasks/claim", async (req, res, next) => {
       [req.player.telegram_id, task.id]
     );
     const updated = await client.query(
-      "UPDATE players SET balance = balance + $1, total_earned = total_earned + $1 WHERE telegram_id = $2 RETURNING *",
+      "UPDATE players SET balance = balance + $1, total_earned = total_earned + $1, monthly_earned = CASE WHEN monthly_period = TO_CHAR(NOW(), 'YYYY-MM') THEN monthly_earned + $1 ELSE $1 END, monthly_period = TO_CHAR(NOW(), 'YYYY-MM') WHERE telegram_id = $2 RETURNING *",
       [task.reward, req.player.telegram_id]
     );
     await client.query("COMMIT");
@@ -704,6 +720,10 @@ async function start() {
       ADD COLUMN IF NOT EXISTS avatar_url TEXT,
       ADD COLUMN IF NOT EXISTS balance BIGINT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS total_earned BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS monthly_earned BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS monthly_period TEXT,
+      ADD COLUMN IF NOT EXISTS monthly_top_rank INTEGER,
+      ADD COLUMN IF NOT EXISTS monthly_top_period TEXT,
       ADD COLUMN IF NOT EXISTS click_power INTEGER NOT NULL DEFAULT 1,
       ADD COLUMN IF NOT EXISTS auto_level INTEGER NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS multiplier_level INTEGER NOT NULL DEFAULT 0,
