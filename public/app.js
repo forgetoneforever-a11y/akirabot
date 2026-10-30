@@ -646,6 +646,7 @@ async function flushClickQueue() {
       method: "POST",
       body: { count },
     });
+    stateSyncVersion++;
     if (data.player) renderState(data);
     else await loadState();
     createClickPopup(null, data.reward ?? getClickPower() * count);
@@ -656,7 +657,7 @@ async function flushClickQueue() {
     queuedClickCount = Math.min(250, queuedClickCount + count);
   } finally {
     clickRequestInFlight = false;
-    if (queuedClickCount > 0) scheduleClickFlush();
+    if (queuedClickCount > 0) setTimeout(scheduleClickFlush, 1200);
   }
 }
 
