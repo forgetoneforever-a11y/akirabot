@@ -7,7 +7,7 @@
   <meta name="description" content="AKIRA! — Cookie Empire">
   <title>AKIRA! — Cookie Empire</title>
 
-  <link rel="stylesheet" href="/style.css?v=nested-tabs-glass-1">
+  <link rel="stylesheet" href="/style.css?v=black-glass-1">
   <link rel="stylesheet" href="/games.css?v=black-glass-arcade-1">
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -40,33 +40,38 @@
 
     <!-- HOME: COOKIE CLICKER -->
     <section class="tab-content home-screen" id="tab-home">
-      <div class="subtab-nav" role="tablist" aria-label="Разделы главной">
-        <button class="subtab-button active" type="button" data-subtab-group="home" data-subtab="clicker" role="tab" aria-selected="true">🍪 Кликер</button>
-        <button class="subtab-button" type="button" data-subtab-group="home" data-subtab="stats" role="tab" aria-selected="false">📊 Статистика</button>
+    <!-- BALANCE -->
+    <section class="balance-card">
+      <div class="balance-label">ТВОЙ БАЛАНС</div>
+
+      <div class="balance-value">
+        <span class="coin-icon">◎</span>
+        <span id="balance">0</span>
       </div>
-      <div class="subtab-panel active" data-subtab-panel="home:clicker">
-        <section class="balance-card">
-          <div class="balance-label">ТВОЙ БАЛАНС</div>
-          <div class="balance-value"><span class="coin-icon">◎</span><span id="balance">0</span></div>
-          <div class="total-earned">Всего заработано: <span id="total-earned">0</span></div>
-        </section>
-        <section class="clicker-card" id="click-area">
-          <button class="cookie-button" id="cookie-button" type="button" aria-label="Нажми, чтобы заработать монеты">🍪</button>
-        </section>
-        <div class="click-hint">НАЖИМАЙ, ЧТОБЫ ЗАРАБАТЫВАТЬ</div>
+
+      <div class="total-earned">
+        Всего заработано: <span id="total-earned">0</span>
       </div>
-      <div class="subtab-panel" data-subtab-panel="home:stats" hidden>
-        <section class="card home-stats-card">
-          <h2 class="section-title">📊 Твоя статистика</h2>
-          <p class="section-description">Показатели твоей империи печенек</p>
-          <div class="click-stats">
-            <span>+<span id="click-power">1</span> за клик</span>
-            <span class="separator">•</span>
-            <span><span id="auto-power">0</span>/сек авто</span>
-          </div>
-          <div class="home-stat-note">Улучшай силу клика и автодоход в магазине, чтобы быстрее расти.</div>
-        </section>
-      </div>
+    </section>
+
+    <!-- CLICKER -->
+    <section class="clicker-card" id="click-area">
+      <button
+        class="cookie-button"
+        id="cookie-button"
+        type="button"
+        aria-label="Нажми, чтобы заработать монеты"
+      >🍪</button>
+    </section>
+
+    <div class="click-hint">НАЖИМАЙ, ЧТОБЫ ЗАРАБАТЫВАТЬ</div>
+
+    <div class="click-stats">
+      <span>+<span id="click-power">1</span> за клик</span>
+      <span class="separator">•</span>
+      <span><span id="auto-power">0</span>/сек авто</span>
+    </div>
+
     </section>
 
     <!-- NAVIGATION -->
@@ -136,12 +141,7 @@
 
       <!-- SHOP -->
       <section class="tab-content" id="tab-shop" hidden>
-        <div class="subtab-nav" role="tablist" aria-label="Разделы магазина">
-          <button class="subtab-button active" type="button" data-subtab-group="shop" data-subtab="upgrades" role="tab" aria-selected="true">⚡ Улучшения</button>
-          <button class="subtab-button" type="button" data-subtab-group="shop" data-subtab="friends" role="tab" aria-selected="false">👥 Друзья</button>
-          <button class="subtab-button" type="button" data-subtab-group="shop" data-subtab="cases" role="tab" aria-selected="false">🎁 Кейсы</button>
-        </div>
-        <div class="subtab-panel active" data-subtab-panel="shop:upgrades"><div class="upgrades-card">
+        <div class="upgrades-card">
 
           <div class="upgrades-header">
             <div>
@@ -222,9 +222,10 @@
           >
             🎁 Ежедневная награда — в профиле
           </button>
-        </div></div>
-        <div class="subtab-panel" data-subtab-panel="shop:friends" hidden><section class="card friends-card"><div class="upgrades-header"><div><h2 class="section-title">👥 Друзья и подарки</h2><p class="section-description">Приглашай друзей или найди их по Telegram username</p></div><span class="level-badge">SOCIAL</span></div><button id="invite-friend-button" class="btn btn-secondary btn-full" type="button">🔗 Пригласить друга в AKIRA</button><p class="section-description" style="margin:7px 0 10px">Отправь ссылку в Telegram — друг сможет открыть игру.</p><div class="friends-search"><input id="friend-username" type="text" maxlength="32" placeholder="username без @" autocomplete="off"><button id="friend-search-button" class="buy-button" type="button">Найти</button></div><div id="friend-search-result" class="friend-search-result"></div><div class="friends-heading"><strong>Мои друзья</strong><button id="friends-refresh" class="skin-equip" type="button">Обновить</button></div><div id="friends-list" class="friends-list">Загрузка друзей…</div><p class="shards-balance">💠 Осколки: <strong id="shards-balance">0</strong></p></section></div>
-        <div class="subtab-panel" data-subtab-panel="shop:cases" hidden><section class="card collection-card">
+        </div>
+
+        <section class="card friends-card"><div class="upgrades-header"><div><h2 class="section-title">👥 Друзья и подарки</h2><p class="section-description">Приглашай друзей или найди их по Telegram username</p></div><span class="level-badge">SOCIAL</span></div><button id="invite-friend-button" class="btn btn-secondary btn-full" type="button">🔗 Пригласить друга в AKIRA</button><p class="section-description" style="margin:7px 0 10px">Отправь ссылку в Telegram — друг сможет открыть игру.</p><div class="friends-search"><input id="friend-username" type="text" maxlength="32" placeholder="username без @" autocomplete="off"><button id="friend-search-button" class="buy-button" type="button">Найти</button></div><div id="friend-search-result" class="friend-search-result"></div><div class="friends-heading"><strong>Мои друзья</strong><button id="friends-refresh" class="skin-equip" type="button">Обновить</button></div><div id="friends-list" class="friends-list">Загрузка друзей…</div><p class="shards-balance">💠 Осколки: <strong id="shards-balance">0</strong></p></section>
+        <section class="card collection-card">
           <div class="upgrades-header">
             <div><h2 class="section-title">🎁 Кейсы и коллекция</h2><p class="section-description">Открывай кейсы, собирай редкие скины</p></div>
             <span class="level-badge">LOOT</span>
@@ -233,7 +234,7 @@
           <div class="collection-heading"><h3 class="section-title">Моя коллекция</h3><span id="collection-count" class="collection-count">0 / 6</span></div><p id="skin-set-bonus" class="section-description">Бонус коллекции: ×1.00</p>
           <div id="skin-collection" class="skin-collection"><p class="section-description">Загрузка коллекции…</p></div>
           <p id="case-result" class="case-result" aria-live="polite"></p>
-        </section></div>
+        </section>
       </section>
 
       <!-- LEADERBOARD -->
@@ -257,12 +258,13 @@
 
       <!-- PROFILE -->
       <section class="tab-content" id="tab-profile" hidden>
-        <div class="subtab-nav" role="tablist" aria-label="Разделы профиля">
-          <button class="subtab-button active" type="button" data-subtab-group="profile" data-subtab="account" role="tab" aria-selected="true">👤 Аккаунт</button>
-          <button class="subtab-button" type="button" data-subtab-group="profile" data-subtab="prestige" role="tab" aria-selected="false">✨ Престиж</button>
-          <button class="subtab-button" type="button" data-subtab-group="profile" data-subtab="tasks" role="tab" aria-selected="false">🎯 Задания</button>
-        </div>
-        <div class="profile-card card subtab-panel active" data-subtab-panel="profile:account"><div class="profile-identity">
+        <div class="profile-card card">
+          <h2 class="section-title">👤 Профиль</h2>
+          <p class="section-description">
+            Настрой свой игровой профиль
+          </p>
+
+          <div class="profile-identity">
             <img
               id="profile-avatar"
               class="profile-avatar"
@@ -339,8 +341,9 @@
               <div class="stat-label">Автодоход</div>
               <div class="stat-value" id="profile-auto">0/с</div>
             </div>
-          </div></div>
-        <div class="profile-card card subtab-panel" data-subtab-panel="profile:prestige" hidden><section class="prestige-card glass-panel" aria-labelledby="prestige-heading">
+          </div>
+
+          <section class="prestige-card glass-panel" aria-labelledby="prestige-heading">
             <div class="prestige-top">
               <div><h3 id="prestige-heading">✨ Перерождение</h3><p class="section-description">Начни развитие заново и получи постоянный бонус.</p></div>
               <div class="prestige-crystals"><span>💠</span><strong id="prestige-crystals">0</strong><small>кристаллов</small></div>
@@ -352,15 +355,23 @@
             <p id="prestige-requirement" class="section-description">Нужно накопить 1 000 000 печенек на балансе.</p>
             <button class="btn btn-full prestige-button" id="prestige-button" type="button">Переродиться</button>
             <p class="prestige-warning">Сбросится баланс и уровни улучшений. Общий заработок, ранг, скины и достижения сохранятся.</p>
-          </section></div>
-        <div class="profile-card card subtab-panel" data-subtab-panel="profile:tasks" hidden><section class="tasks-achievements glass-panel" aria-labelledby="tasks-heading">
+          </section>
+          <section class="tasks-achievements glass-panel" aria-labelledby="tasks-heading">
             <h3 id="tasks-heading">🎯 Ежедневные задания</h3>
             <p class="section-description">Выполняй задания и забирай дополнительные печеньки.</p>
             <div id="daily-tasks-list" class="task-list"><p class="section-description">Загрузка заданий…</p></div>
             <h3 class="achievements-heading">🏆 Достижения</h3>
             <div id="achievements-list" class="achievement-list"><p class="section-description">Загрузка достижений…</p></div>
           </section>
-          <button class="btn btn-secondary btn-full" id="daily-button" type="button" style="margin-top:20px">🎁 Ежедневная награда</button>
+
+          <button
+            class="btn btn-secondary btn-full"
+            id="daily-button"
+            type="button"
+            style="margin-top:20px"
+          >
+            🎁 Ежедневная награда
+          </button>
         </div>
       </section>
 
@@ -644,7 +655,7 @@
   </div>
 
   <!-- SCRIPTS -->
-  <script src="/app.js?v=nested-tabs-1"></script>
+  <script src="/app.js?v=clicker-no-drop-queue-2"></script>
   <script src="/profile.js"></script>
   <script src="/durak.js?v=online-durak-fix-1"></script>
   <script src="/chess.js?v=render-opt-1"></script>
