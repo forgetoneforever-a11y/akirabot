@@ -675,7 +675,16 @@ app.post("/api/minigame/finish", (req, res) => {
   res.status(501).json({ error: "Мини-игра пока не настроена" });
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"), {
+  maxAge: "1d",
+  setHeaders(res, filePath) {
+    if (path.basename(filePath) === "index.html") {
+      res.setHeader("Cache-Control", "no-cache");
+    } else {
+      res.setHeader("Cache-Control", "public, max-age=86400");
+    }
+  }
+}));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
