@@ -207,6 +207,15 @@
       suit.textContent = ` ${SUIT_NAMES[card.suit]}`;
 
       container.append(label, value, suit);
+    } else if (game.mode === "online" && game.trumpSuit) {
+      const suit = SUITS.find((item) => item.id === game.trumpSuit);
+      label.textContent = "Козырь: ";
+      const value = document.createElement("strong");
+      value.className = suit?.red ? "red-suit" : "black-suit";
+      value.textContent = suit?.symbol || "";
+      const name = document.createElement("span");
+      name.textContent = suit ? ` ${suit.name}` : "";
+      container.append(label, value, name);
     } else {
       label.textContent = "Козырей больше нет";
       container.appendChild(label);
