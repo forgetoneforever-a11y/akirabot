@@ -2,8 +2,8 @@
 
 const API_BASE = "/api";
 
-const THEMES = ["crimson", "midnight", "ocean", "emerald"];
-const DEFAULT_THEME = "crimson";
+const THEMES = ["classic", "crimson", "midnight", "ocean", "emerald"];
+const DEFAULT_THEME = "classic";
 const TABS = ["home", "shop", "top", "profile", "themes", "games"];
 
 const state = {
