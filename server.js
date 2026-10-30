@@ -361,13 +361,15 @@ app.post("/api/click", async (req, res, next) => {
       return res.status(404).json({ error: "Игрок не найден" });
     }
 
-    // One skin lookup and one database update per short burst of taps.
+    // Collection bonus + permanent per-click bonuses from owned special skins.
     const skinResult = await client.query(
-      "SELECT COUNT(*)::int AS n FROM player_skins WHERE telegram_id = $1",
+      "SELECT skin_id FROM player_skins WHERE telegram_id = $1",
       [player.telegram_id]
     );
-    const skinCount = Number(skinResult.rows[0]?.n || 0);
+    const ownedSkinIds = new Set(skinResult.rows.map(row => row.skin_id));
+    const skinCount = ownedSkinIds.size;
     const setBonus = skinCount >= 6 ? 1.2 : skinCount >= 4 ? 1.1 : skinCount >= 2 ? 1.05 : 1;
+    const specialSkinBonus = (ownedSkinIds.has("dragon") ? 100000 : 0) + (ownedSkinIds.has("golden") ? 10000 : 0);
     const prestigeBonus = 1 + Number(player.prestige_level || 0) * 0.1;
     const basePower = Number(player.click_power || 1) * Math.pow(2, Number(player.multiplier_level || 0));
     let totalReward = 0;
@@ -376,7 +378,7 @@ app.post("/api/click", async (req, res, next) => {
     // Keep rank multipliers exact even when a burst crosses a rank threshold.
     for (let i = 0; i < clickCount; i++) {
       const rankBoost = rankForEarned(earned).multiplier;
-      const reward = Math.max(1, Math.floor(basePower * rankBoost * prestigeBonus * setBonus));
+      const reward = Math.max(1, Math.floor(basePower * rankBoost * prestigeBonus * setBonus)) + specialSkinBonus;
       totalReward += reward;
       earned += reward;
     }
@@ -397,6 +399,7 @@ app.post("/api/click", async (req, res, next) => {
       ok: true,
       clicks: clickCount,
       reward: totalReward,
+      special_skin_bonus_per_click: specialSkinBonus,
       rank_bonus: rankResult.bonus,
       set_bonus: setBonus,
       player: publicPlayer(rankResult.player)
