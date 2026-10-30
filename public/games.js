@@ -280,8 +280,6 @@
     if (durakMode) durakMode.hidden = online || isChess;
     if (difficulty) difficulty.hidden = online;
     if (chessColor) chessColor.hidden = !isChess;
-    const settings = $("#game-settings");
-    if (settings) settings.hidden = online && !isChess;
   }
 
   function updateLobbySection() {
