@@ -2865,3 +2865,6 @@ body[data-theme="classic"], :root[data-theme="classic"] body {
 .upgrade-level { margin-top:5px; color:var(--muted-text, #9299a8); font-size:12px; }
 .upgrade-level b { color:var(--text-primary, #f3f3f3); font-weight:800; font-variant-numeric:tabular-nums; }
 .buy-button.upgrade-maxed { opacity:.72; cursor:default; border-color:rgba(255,255,255,.22); }
+
+
+.upgrade-level{margin-top:5px;color:var(--muted-text,#9299a8);font-size:12px}.upgrade-level b{color:var(--text-primary,#f3f3f3);font-weight:800;font-variant-numeric:tabular-nums}.buy-button.upgrade-maxed{opacity:.72;cursor:default;border-color:rgba(255,255,255,.22)}
