@@ -129,7 +129,7 @@ function roomSnapshot(room, viewerId) {
       fen: room.chess.fen,
       pgn: room.chess.pgn,
       history: room.chess.history,
-      color: playerIndex === 0 ? "w" : "b",
+      color: playerIndex === (room.chess.whiteSeat ?? 0) ? "w" : "b",
       winner: room.winner || null,
       lastMove: room.chess.lastMove || null,
     };
@@ -238,6 +238,7 @@ function createRoom({ game, player }) {
         socketId: player.socketId,
         ready: true,
         hand: [],
+        chessColor: ["white", "black"].includes(player.chessColor) ? player.chessColor : "random",
       },
     ],
     createdAt: Date.now(),
@@ -312,16 +313,24 @@ function setupDurak(room) {
 }
 
 function setupChess(room) {
+  const preferences = room.players.map((player) => player.chessColor || "random");
+  let whiteSeat = 0;
+  if (preferences[0] === "black" && preferences[1] !== "black") whiteSeat = 1;
+  else if (preferences[1] === "white" && preferences[0] !== "white") whiteSeat = 1;
+  else if (preferences[1] === "black" && preferences[0] !== "black") whiteSeat = 0;
+  else if (preferences[0] === "white" && preferences[1] !== "white") whiteSeat = 0;
+
   room.chess = {
     fen: "start",
     pgn: "",
     history: [],
     lastMove: null,
     turnColor: "w",
+    whiteSeat,
   };
 
   room.status = "playing";
-  room.turn = room.players[0].id;
+  room.turn = room.players[whiteSeat].id;
   room.message = "Матч начался. Белые ходят первыми.";
 }
 
@@ -364,6 +373,7 @@ function joinRoom(room, player) {
     socketId: player.socketId,
     ready: true,
     hand: [],
+    chessColor: ["white", "black"].includes(player.chessColor) ? player.chessColor : "random",
   });
 
   room.message = "Оба игрока подключены. Матч начинается.";
@@ -593,7 +603,7 @@ function chessMove(io, room, player, move) {
   if (!room.chess) throw new Error("Шахматная партия не инициализирована.");
 
   const playerIndex = room.players.findIndex((item) => item.id === player.id);
-  const expectedColor = playerIndex === 0 ? "w" : "b";
+  const expectedColor = playerIndex === (room.chess.whiteSeat ?? 0) ? "w" : "b";
   const from = String(move?.from || "");
   const to = String(move?.to || "");
   const promotion = move?.promotion ? String(move.promotion) : "q";
@@ -667,7 +677,7 @@ function chessMove(io, room, player, move) {
     finishGame(room, winnerId, reason);
   } else {
     const nextColor = engine.turn();
-    const nextIndex = nextColor === "w" ? 0 : 1;
+    const nextIndex = nextColor === "w" ? (room.chess.whiteSeat ?? 0) : 1 - (room.chess.whiteSeat ?? 0);
     room.message = `Ход игрока ${room.players[nextIndex].name}.`;
     setTurn(io, room, room.players[nextIndex].id);
   }
@@ -767,6 +777,7 @@ function registerHandlers(io, socket) {
         name: socket.data.playerName || safeName(payload.name),
         avatar: socket.data.playerAvatar || safeAvatar(payload.avatar),
         socketId: socket.id,
+        chessColor: payload.chessColor,
       });
 
       socketPlayers.set(socket.id, {
@@ -855,6 +866,7 @@ function registerHandlers(io, socket) {
         name: socket.data.playerName || safeName(payload.name),
         avatar: socket.data.playerAvatar || safeAvatar(payload.avatar),
         socketId: socket.id,
+        chessColor: payload.chessColor,
       };
 
       const room = waitingRoom || createRoom({ game, player });
