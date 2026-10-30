@@ -275,12 +275,38 @@
   function updateSettingsVisibility() {
     const online = state.mode === "online";
     const isChess = state.selectedGame === "chess";
-    const durakMode = $("#durak-mode-option");
-    const difficulty = $("#game-difficulty-option");
-    const chessColor = $("#chess-color-option");
-    if (durakMode) durakMode.hidden = online || isChess;
-    if (difficulty) difficulty.hidden = online;
-    if (chessColor) chessColor.hidden = !isChess;
+    const options = {
+      durakMode: $("#durak-mode-option"),
+      difficulty: $("#game-difficulty-option"),
+      chessColor: $("#chess-color-option"),
+    };
+
+    // Bot: Durak rules + difficulty; Chess: difficulty + color.
+    // Online: chess color only; online Durak currently uses classic throw-in rules.
+    const visible = {
+      durakMode: !online && !isChess,
+      difficulty: !online,
+      chessColor: isChess,
+    };
+
+    Object.entries(options).forEach(([key, element]) => {
+      if (!element) return;
+      const show = visible[key];
+      element.hidden = !show;
+      // Some mobile layout rules assign display:grid/flex to setting fields.
+      // Inline important display guarantees hidden settings stay hidden in Telegram WebView.
+      if (show) {
+        element.style.removeProperty("display");
+      } else {
+        element.style.setProperty("display", "none", "important");
+      }
+    });
+
+    const settings = $("#game-settings");
+    if (settings) {
+      settings.dataset.game = state.selectedGame;
+      settings.dataset.mode = state.mode;
+    }
   }
 
   function updateLobbySection() {
