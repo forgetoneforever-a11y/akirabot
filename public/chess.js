@@ -64,6 +64,7 @@
     history: [],
     botTimer: null,
     moveCount: 0,
+    hintMove: null,
   };
 
   function createChessInstance() {
@@ -217,6 +218,12 @@
 
         if (isLastMoveSquare(squareName)) {
           square.classList.add("last-move");
+        }
+        if (state.hintMove && squareName === state.hintMove.from) {
+          square.classList.add("hint-from");
+        }
+        if (state.hintMove && squareName === state.hintMove.to) {
+          square.classList.add("hint-to");
         }
 
         if (piece) {
@@ -495,6 +502,7 @@
       return;
     }
 
+    state.hintMove = null;
     state.history.push(move);
     state.lastMove = {
       from: move.from,
@@ -857,6 +865,28 @@
     clearSelection();
   }
 
+
+  function showMoveHint() {
+    if (!state.game || !state.active || state.finished || state.mode !== "bot" ||
+        state.thinking || state.game.turn() !== state.playerColor) {
+      setStatus("Подсказка доступна во время твоего хода в игре против бота.");
+      return;
+    }
+
+    const legalMoves = state.game.moves({ verbose: true });
+    if (!legalMoves.length) return;
+
+    const ranked = legalMoves
+      .map((move) => ({ move, score: scoreMove(move) }))
+      .sort((a, b) => b.score - a.score);
+
+    const best = ranked[0].move;
+    state.hintMove = { from: best.from, to: best.to };
+    clearSelection();
+    renderBoard();
+    setStatus(`Подсказка: попробуй ${best.from} → ${best.to}.`);
+  }
+
   function bindControls() {
     const board = getBoardElement();
 
@@ -867,6 +897,9 @@
         renderBoard();
       });
     }
+
+    const hintButton = $("#chess-hint-button");
+    if (hintButton) hintButton.addEventListener("click", showMoveHint);
 
     // Undo/restart controls are handled centrally by games.js to avoid
     // duplicate click listeners and applying an action twice.
