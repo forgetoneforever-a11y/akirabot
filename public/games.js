@@ -42,6 +42,28 @@
   };
 
   let toastTimer = null;
+  const STATS_KEY = "akira:arcade-stats:v1";
+  const emptyStats = () => ({ total:0,wins:0,losses:0,draws:0,durak:{wins:0,losses:0,draws:0},chess:{wins:0,losses:0,draws:0} });
+  function readGameStats() {
+    try { const saved=JSON.parse(localStorage.getItem(STATS_KEY)||"null"); const base=emptyStats(); if(!saved)return base; return {...base,...saved,durak:{...base.durak,...(saved.durak||{})},chess:{...base.chess,...(saved.chess||{})}}; }
+    catch { return emptyStats(); }
+  }
+  function renderGameStats() {
+    const stats=readGameStats(); const put=(id,value)=>{const el=$("#"+id);if(el)el.textContent=String(value);};
+    put("game-stat-played",stats.total);put("game-stat-wins",stats.wins);put("game-stat-losses",stats.losses);put("game-stat-draws",stats.draws);
+    put("game-stat-durak",stats.durak.wins+"–"+stats.durak.losses+"–"+stats.durak.draws);put("game-stat-chess",stats.chess.wins+"–"+stats.chess.losses+"–"+stats.chess.draws);
+    const items=[{t:"Первые шаги",i:"🎮",ok:stats.total>=1,d:"Сыграть первую партию"},{t:"Первая победа",i:"🥇",ok:stats.wins>=1,d:"Одержать первую победу"},{t:"Серия побед",i:"🔥",ok:stats.wins>=5,d:"Выиграть 5 партий"},{t:"Опытный игрок",i:"⭐",ok:stats.total>=10,d:"Сыграть 10 партий"},{t:"Шахматист",i:"♟️",ok:stats.chess.wins>=3,d:"Выиграть 3 партии в шахматы"},{t:"Карточный мастер",i:"🃏",ok:stats.durak.wins>=3,d:"Выиграть 3 партии в Дурака"}];
+    const box=$("#game-achievements");if(!box)return;box.replaceChildren();items.forEach(item=>{const el=document.createElement("span");el.className="game-achievement "+(item.ok?"unlocked":"locked");el.title=item.d;el.textContent=(item.ok?item.i:"🔒")+" "+item.t;box.appendChild(el);});
+  }
+  function recordGameResult(detail) {
+    if(!["durak","chess"].includes(detail.game))return;
+    const key=detail.winner==="player"?"wins":detail.winner==="bot"?"losses":"draws";const stats=readGameStats();
+    stats.total+=1;stats[key]+=1;stats[detail.game][key]+=1;
+    try{localStorage.setItem(STATS_KEY,JSON.stringify(stats));}catch(error){console.warn("[AKIRA Games] Stats save failed",error);}
+    renderGameStats();
+  }
+
+
 
   function toast(message, type = "info") {
     let element = $("#akira-game-toast");
@@ -449,7 +471,7 @@
     const gameId = detail.game || state.selectedGame;
 
     if (!GAME_CONFIG[gameId]) return;
-
+    recordGameResult(detail);
     state.active = false;
 
     if (detail.message) {
@@ -472,6 +494,7 @@
   }
 
   function bindControls() {
+    renderGameStats();
     /*
      * Игры. Используем делегирование, чтобы элементы,
      * появившиеся позднее, также работали.
