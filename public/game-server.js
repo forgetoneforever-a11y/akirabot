@@ -1100,7 +1100,12 @@ function attach(httpServer, options = {}) {
     cors: options.cors || { origin: false },
     serveClient: true,
     transports: ["websocket", "polling"],
-    maxHttpBufferSize: 1e6,
+    perMessageDeflate: false,
+    httpCompression: false,
+    pingInterval: 20000,
+    pingTimeout: 20000,
+    connectTimeout: 10000,
+    maxHttpBufferSize: 256 * 1024,
   });
 
   io.use((socket, next) => {
