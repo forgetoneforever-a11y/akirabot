@@ -21,7 +21,7 @@
 
   const SUITS = [
     { id: "spades", symbol: "♠", name: "пики", red: false },
-    { id: "clubs", symbol: "♣", name: "трефы", red: false },
+    { id: "clubs", symbol: "♣", name: "крести", red: false },
     { id: "diamonds", symbol: "♦", name: "бубны", red: true },
     { id: "hearts", symbol: "♥", name: "червы", red: true },
   ];
@@ -52,7 +52,7 @@
 
   const SUIT_NAMES = {
     spades: "пики",
-    clubs: "трефы",
+    clubs: "крести",
     diamonds: "бубны",
     hearts: "червы",
   };
@@ -360,6 +360,8 @@
   function renderControls() {
     const takeButton = $('[data-durak-action="take"]');
     const passButton = $('[data-durak-action="pass"]');
+    const hintButton = $("#durak-hint-button");
+    if (hintButton) hintButton.addEventListener("click", showDurakHint);
 
     const canAct =
       game.active &&
@@ -992,6 +994,25 @@
 
       render();
     }, game.difficulty === "hard" ? 550 : 750);
+  }
+
+  function showDurakHint() {
+    if (!game.active || game.finished || game.mode !== "bot" || game.turn !== "player" || game.actionLocked) {
+      setStatus("Подсказка доступна во время твоего хода против бота.");
+      return;
+    }
+    let suggested = null;
+    if (game.attacker === "player") {
+      const ranks = game.table.flatMap((pair) => [pair.attack && pair.attack.value, pair.defense && pair.defense.value]).filter((value) => value != null);
+      suggested = game.playerHand.find((card) => game.table.length < 6 && (game.table.length === 0 || ranks.includes(card.value)) && game.table.length < game.botHand.length);
+      setStatus(suggested ? "Совет: можно атаковать картой " + cardName(suggested) + "." : "Подходящей карты для атаки нет — заверши ход.");
+    } else {
+      const pair = game.table.find((item) => !item.defense);
+      if (pair) suggested = game.playerHand.filter((card) => beats(pair.attack, card)).sort((a, b) => (isTrump(a) === isTrump(b) ? a.value - b.value : isTrump(a) ? 1 : -1))[0] || null;
+      setStatus(suggested ? "Совет: отбей " + cardName(pair.attack) + " картой " + cardName(suggested) + "." : "Нет подходящей карты для отбивания. Возможно, придётся взять карты.");
+    }
+    game.selectedCardId = suggested ? suggested.id : null;
+    renderPlayerHand();
   }
 
   function bindControls() {
