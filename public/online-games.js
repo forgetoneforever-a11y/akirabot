@@ -32,8 +32,11 @@
     const socket = window.io({
       auth: { playerId: String(user.id), initData },
       transports: ["websocket", "polling"],
+      upgrade: true,
       reconnection: true,
-      timeout: 12000
+      reconnectionDelay: 400,
+      reconnectionDelayMax: 2500,
+      timeout: 8000
     });
     state.socket = socket;
 
