@@ -2320,3 +2320,10 @@ button:active, .nav-button:active, .buy-button:active { transform: scale(.975); 
   outline-offset: -4px;
   box-shadow: inset 0 0 0 999px rgba(90, 210, 170, .22);
 }
+
+.game-stats-panel{margin:18px 0 22px;padding:20px;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));box-shadow:0 14px 40px rgba(0,0,0,.18)}
+.game-stats-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.game-stats-heading h2{margin:5px 0 0;font-size:19px}.game-stats-icon{font-size:25px}
+.game-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.game-stat{min-width:0;padding:12px 8px;border-radius:14px;background:rgba(255,255,255,.045)}.game-stat span,.game-stats-games span{display:block;color:var(--muted,#9b9ba5);font-size:11px}.game-stat strong{display:block;margin-top:5px;font-size:22px;font-variant-numeric:tabular-nums}
+.game-stats-games{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.game-stats-games>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;border-radius:13px;background:rgba(255,255,255,.035)}.game-stats-games strong{font-size:13px;font-variant-numeric:tabular-nums}
+.game-achievements-title{margin:18px 0 10px;font-size:13px;font-weight:700}.game-achievements{display:flex;flex-wrap:wrap;gap:8px}.game-achievement{padding:8px 10px;border-radius:999px;font-size:11px;border:1px solid rgba(255,255,255,.1)}.game-achievement.unlocked{background:rgba(170,145,255,.13);border-color:rgba(170,145,255,.35)}.game-achievement.locked{opacity:.48}.game-stats-note{margin:12px 0 0;color:var(--muted,#9b9ba5);font-size:10px}
+@media(max-width:420px){.game-stats-panel{padding:15px}.game-stats-grid{gap:6px}.game-stat strong{font-size:19px}.game-stat span{font-size:10px}}
